@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "Quỹ Đen",
+    "type": "pool",
+    "target": 0,
+    "current": 5000000,
+    "icon": "🕶️",
+    "history": []
+  },
+  {
+    "id": 2,
+    "name": "Mua Xe",
+    "type": "goal",
+    "target": 50000000,
+    "current": 12000000,
+    "icon": "🏍️",
+    "history": []
+  }
+]

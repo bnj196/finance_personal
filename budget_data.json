@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "name": "Quỹ Dự Phòng Khẩn Cấp",
+    "type": "pool",
+    "target": 0,
+    "current": 20000000,
+    "icon": "🛡️",
+    "history": []
+  },
+  {
+    "id": 2,
+    "name": "Mua Ô tô",
+    "type": "goal",
+    "target": 500000000,
+    "current": 150000000,
+    "icon": "🚗",
+    "history": []
+  },
+  {
+    "id": 3,
+    "name": "Báo hiếu Bố Mẹ",
+    "type": "monthly",
+    "target": 5000000,
+    "current": 0,
+    "icon": "👴",
+    "history": []
+  },
+  {
+    "id": 4,
+    "name": "Bảo hiểm Nhân thọ",
+    "type": "monthly",
+    "target": 2000000,
+    "current": 2000000,
+    "icon": "🏥",
+    "history": []
+  }
+]

@@ -1,0 +1,17 @@
+﻿id,date,category,amount,type,role,description,expiry_date,is_recurring,cycle
+T1,2026-01-05,Lương,20000000.0,income,Bố,Lương tháng 1,,False,Tháng
+C1,2026-01-06,Ăn uống,1200000.0,expense,Mẹ,Đi chợ Tết,,False,Tháng
+C2,2026-01-07,Đi lại,350000.0,expense,Bố,Xăng xe,2026-02-01,False,Tháng
+T2,2026-01-10,Thưởng,5000000.0,income,Mẹ,Thưởng Tết,,False,Tháng
+C3,2026-01-15,Giải trí,800000.0,expense,Con,Xem phim,,False,Tháng
+C4,2026-01-20,Y tế,1500000.0,expense,Ông,Khám bệnh,2026-02-10,False,Tháng
+T3,2026-02-01,Lương,20000000.0,income,Bố,Lương tháng 2,,False,Tháng
+C5,2026-02-03,Nhà cửa,2500000.0,expense,Bố,Sửa máy lạnh,,False,Tháng
+C6,2026-02-10,Ăn uống,2200000.0,expense,Mẹ,Liên hoan,,False,Tháng
+T4,2026-02-15,Kinh doanh,7000000.0,income,Con,Bán đồ cũ,,False,Tháng
+C7,2026-02-18,Giáo dục,3000000.0,expense,Con,Học thêm,2026-12-31,False,Tháng
+T5,2026-03-01,Lương,20000000.0,income,Bố,Lương tháng 3,,False,Tháng
+C8,2026-03-05,Mua sắm,4000000.0,expense,Mẹ,Mua váy mới,,False,Tháng
+C9,2026-03-12,Ăn uống,1800000.0,expense,Con,Coffee & trà sữa,,False,Tháng
+T6,2026-03-20,Đầu tư,10000000.0,income,Bố,Cổ tức,,False,Tháng
+C10,2026-03-25,Y tế,2000000.0,expense,Ông,Mua thuốc,2025-04-30,False,Tháng
