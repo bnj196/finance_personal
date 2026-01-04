@@ -3,3 +3,6 @@
 /.vscode
 /.idea
 *.pyc
+
+token.json
+credentials.json
