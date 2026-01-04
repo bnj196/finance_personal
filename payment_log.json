@@ -1,0 +1,79 @@
+[
+  {
+    "debt_id": 2,
+    "counterparty": "Anh B",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 9000000.0
+  },
+  {
+    "debt_id": 1,
+    "counterparty": "Bạn A",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 2000000.0
+  },
+  {
+    "debt_id": 2,
+    "counterparty": "Anh B",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 8000000.0
+  },
+  {
+    "debt_id": 2,
+    "counterparty": "Anh B",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 7000000.0
+  },
+  {
+    "debt_id": 2,
+    "counterparty": "Anh B",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 6000000.0
+  },
+  {
+    "debt_id": 1,
+    "counterparty": "Bạn A",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 1000000.0
+  },
+  {
+    "debt_id": 6,
+    "counterparty": "Anh F",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 4000000.0
+  },
+  {
+    "debt_id": 6,
+    "counterparty": "Anh F",
+    "date": "2026-01-04",
+    "amount": 1000000.0,
+    "remain": 3000000.0
+  },
+  {
+    "debt_id": 7,
+    "counterparty": "Cô G",
+    "date": "2026-01-05",
+    "amount": 1000000.0,
+    "remain": 4000000.0
+  },
+  {
+    "debt_id": 2,
+    "counterparty": "Anh B",
+    "date": "2026-01-05",
+    "amount": 1000000.0,
+    "remain": 5000000.0
+  },
+  {
+    "debt_id": 10,
+    "counterparty": "Anh K",
+    "date": "2026-01-05",
+    "amount": 1000000.0,
+    "remain": 18000000.0
+  }
+]

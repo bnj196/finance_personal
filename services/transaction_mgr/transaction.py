@@ -1,174 +1,203 @@
 import math
-import csv
-import random
-
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 
+# Import các phần phụ trợ GUI
 from . import BudgetNode, StatisticsDialog
-from models import Transaction,FamilyMember
-from style import  THEMES, SeasonalOverlay, Particle
+from models import Transaction, FamilyMember
+from style import THEMES, SeasonalOverlay
 
+# Import Core Data Manager (Singleton)
+from core.data_manager import DataManager
 
-
-import pathlib, shutil, os
-DATA_FILE = pathlib.Path(__file__).parent / "transactions.csv"
-BACKUP_FOLDER = pathlib.Path(__file__).parent / "backups"
-
+# ==========================================
+# 1. DIALOG NHẬP LIỆU (FORM)
+# ==========================================
 class TransactionDialog(QDialog):
-
-    def __init__(qtl, parent=None, roles=None, transaction=None, theme_key="spring",cycle="Tháng"):
+    def __init__(self, parent=None, roles=None, transaction=None, theme_key="spring", cycle="Tháng"):
         super().__init__(parent)
-        #data
-        qtl.roles = roles or ["Bố", "Mẹ", "Cá nhân"]
-        qtl.cycle = cycle
-        qtl.transaction = transaction
+        # Data
+        self.roles = roles or ["Bố", "Mẹ", "Cá nhân"]
+        self.cycle = cycle
+        self.transaction = transaction
+        
+        # Style
+        self.setWindowTitle("Chi Tiết Giao Dịch")
+        self.resize(450, 550) # Resize to chút cho thoáng
+        self.init_ui()
 
-        #style
-        # qtl.theme = THEMES[theme_key]
-        qtl.setWindowTitle("Chi Tiết Giao Dịch")
-        qtl.resize(400, 500)
-        qtl.init_ui()
-
-
-    def init_ui(qtl):
+    def init_ui(self):
         layout = QFormLayout()
         layout.setSpacing(15)
         
-        qtl.date_edit = QDateEdit(QDate.currentDate())
-        qtl.date_edit.setCalendarPopup(True)
-        qtl.date_edit.setDisplayFormat("dd/MM/yyyy")
+        # 1. Ngày tháng
+        self.date_edit = QDateEdit(QDate.currentDate())
+        self.date_edit.setCalendarPopup(True)
+        self.date_edit.setDisplayFormat("dd/MM/yyyy")
 
-        qtl.type_combo = QComboBox()
-        qtl.type_combo.addItems(["Thu nhập", "Chi tiêu"])
-        qtl.type_combo.currentTextChanged.connect(qtl.on_type_changed)
+        # 2. Loại (Thu/Chi)
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(["Thu nhập", "Chi tiêu"])
+        self.type_combo.currentTextChanged.connect(self.on_type_changed)
 
-        qtl.category_combo = QComboBox()
-        qtl.amount_spin = QDoubleSpinBox() 
-        qtl.amount_spin.setRange(0, 1_000_000_000)
-        qtl.amount_spin.setSingleStep(10000)
-        
-        qtl.role_combo = QComboBox()
-        qtl.role_combo.setEditable(True)
-        print("roles:",qtl.roles)
-        qtl.role_combo.addItems(qtl.roles)
-
-        qtl.desc_edit = QTextEdit()
-        qtl.desc_edit.setMaximumHeight(60)
-
-        qtl.recurring_check = QCheckBox("Lặp lại định kỳ")
-        qtl.expiry_check = QCheckBox("Có hạn sử dụng")
-        qtl.expiry_edit = QDateEdit(QDate.currentDate().addDays(30))
-        qtl.expiry_edit.setCalendarPopup(True)
-        qtl.expiry_edit.setEnabled(False)
-        qtl.expiry_check.toggled.connect(qtl.expiry_edit.setEnabled)
-
-
+        # 3. Danh mục (Có nút thêm nhanh)
         cat_layout = QHBoxLayout()
-        qtl.category_combo = QComboBox()
-        cat_layout.addWidget(qtl.category_combo, stretch=1)
-        qtl.btn_add_cat = QPushButton("+")
-        qtl.btn_add_cat.setFixedSize(30, 30)
-        qtl.btn_add_cat.clicked.connect(qtl.add_new_category)
-        cat_layout.addWidget(qtl.btn_add_cat)
+        self.category_combo = QComboBox()
+        self.category_combo.setEditable(True) # Cho phép nhập tay tìm kiếm
+        self.btn_add_cat = QPushButton("+")
+        self.btn_add_cat.setFixedSize(30, 30)
+        self.btn_add_cat.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_add_cat.clicked.connect(self.add_new_category)
         
-        # combo chù kì theo tháng hoặc tuần
-        qtl.cycle_combo = QComboBox()
-        qtl.cycle_combo.addItems(["Tháng", "Tuần"])
-        qtl.cycle_combo.setEnabled(False)
-        qtl.recurring_check.toggled.connect(qtl.cycle_combo.setEnabled)
+        cat_layout.addWidget(self.category_combo, stretch=1)
+        cat_layout.addWidget(self.btn_add_cat)
 
-        if qtl.transaction: qtl.load_data()
-        else: qtl.on_type_changed("Thu nhập")
+        # 4. Số tiền
+        self.amount_spin = QDoubleSpinBox() 
+        self.amount_spin.setRange(0, 1_000_000_000)
+        self.amount_spin.setSingleStep(50000)
+        self.amount_spin.setSuffix(" đ") # Thêm đơn vị tiền tệ
 
-        layout.addRow("Ngày:", qtl.date_edit)
-        layout.addRow("Loại:", qtl.type_combo)
+        # 5. Thành viên (Role) - CÓ NÚT THÊM MỚI
+        role_layout = QHBoxLayout()
+        self.role_combo = QComboBox()
+        self.role_combo.addItems(self.roles)
+        
+        self.btn_add_role = QPushButton("+")
+        self.btn_add_role.setFixedSize(30, 30)
+        self.btn_add_role.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_add_role.clicked.connect(self.add_new_role)
+        
+        role_layout.addWidget(self.role_combo, stretch=1)
+        role_layout.addWidget(self.btn_add_role)
+
+        # 6. Mô tả
+        self.desc_edit = QTextEdit()
+        self.desc_edit.setMaximumHeight(60)
+        self.desc_edit.setPlaceholderText("Ghi chú chi tiết...")
+
+        # 7. Tùy chọn nâng cao (Định kỳ, Hạn)
+        self.recurring_check = QCheckBox("Lặp lại định kỳ")
+        self.cycle_combo = QComboBox()
+        self.cycle_combo.addItems(["Tháng", "Tuần", "Năm"])
+        self.cycle_combo.setEnabled(False)
+        self.recurring_check.toggled.connect(self.cycle_combo.setEnabled)
+
+        self.expiry_check = QCheckBox("Có hạn bảo hành/sử dụng")
+        self.expiry_edit = QDateEdit(QDate.currentDate().addDays(30))
+        self.expiry_edit.setCalendarPopup(True)
+        self.expiry_edit.setEnabled(False)
+        self.expiry_check.toggled.connect(self.expiry_edit.setEnabled)
+
+        # Load Data nếu là Edit Mode
+        if self.transaction: 
+            self.load_data()
+        else: 
+            self.on_type_changed("Thu nhập")
+
+        # Layout Add Rows
+        layout.addRow("Ngày:", self.date_edit)
+        layout.addRow("Loại:", self.type_combo)
         layout.addRow("Danh mục:", cat_layout)
-        layout.addRow("Số tiền (VNĐ):", qtl.amount_spin)
-        layout.addRow("Thành viên:", qtl.role_combo)
-        layout.addRow("Mô tả:", qtl.desc_edit)
-        layout.addRow("", qtl.recurring_check)
-        layout.addRow("", qtl.expiry_check)
-        layout.addRow("Hết hạn:", qtl.expiry_edit)
-        layout.addRow("Chu kỳ:", qtl.cycle_combo)
+        layout.addRow("Số tiền:", self.amount_spin)
+        layout.addRow("Thành viên:", role_layout) # <--- Đã dùng layout mới
+        layout.addRow("Mô tả:", self.desc_edit)
+        layout.addRow("", QHBoxLayout()) # Spacer
+        layout.addRow(self.recurring_check, self.cycle_combo)
+        layout.addRow(self.expiry_check, self.expiry_edit)
 
+        # Buttons OK/Cancel
         btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        btn_box.accepted.connect(qtl.accept)
-        btn_box.rejected.connect(qtl.reject)
+        btn_box.accepted.connect(self.accept)
+        btn_box.rejected.connect(self.reject)
         layout.addRow(btn_box)
-        qtl.setLayout(layout)
+        
+        self.setLayout(layout)
 
-    def add_new_category(qtl):
-        text, ok = QInputDialog.getText(qtl, "Thêm danh mục", "Tên danh mục mới:")
+    def add_new_category(self):
+        text, ok = QInputDialog.getText(self, "Thêm danh mục", "Tên danh mục mới:")
         if ok and text.strip():
             text = text.strip()
-            if qtl.category_combo.findText(text) == -1:
-                qtl.category_combo.addItem(text)
-            qtl.category_combo.setCurrentText(text)
+            if self.category_combo.findText(text) == -1:
+                self.category_combo.addItem(text)
+            self.category_combo.setCurrentText(text)
 
+    def add_new_role(self):
+        text, ok = QInputDialog.getText(self, "Thêm thành viên", "Tên thành viên mới (VD: Con trai):")
+        if ok and text.strip():
+            text = text.strip()
+            if self.role_combo.findText(text) == -1:
+                self.role_combo.addItem(text)
+            self.role_combo.setCurrentText(text)
 
-    def load_data(qtl):
-        t = qtl.transaction
-        qtl.date_edit.setDate(QDate.fromString(t.date, "yyyy-MM-dd"))
-        qtl.type_combo.setCurrentText("Thu nhập" if t.type == "income" else "Chi tiêu")
-        qtl.category_combo.setCurrentText(t.category)
-        qtl.amount_spin.setValue(t.amount)
-        qtl.role_combo.setCurrentText(t.role)
-        qtl.desc_edit.setPlainText(t.description)
-        qtl.recurring_check.setChecked(t.is_recurring)
+    def on_type_changed(self, text):
+        self.category_combo.clear()
+        items = (
+            ["Lương", "Đầu tư", "Thưởng", "Kinh doanh", "Bán đồ cũ", "Khác"]
+            if text == "Thu nhập"
+            else ["Ăn uống", "Đi lại", "Nhà cửa", "Điện nước", "Giải trí", "Y tế", "Giáo dục", "Mua sắm", "Hiếu hỉ", "Khác"]
+        )
+        self.category_combo.addItems(items)
+
+    def load_data(self):
+        t = self.transaction
+        self.date_edit.setDate(QDate.fromString(t.date, "yyyy-MM-dd"))
+        self.type_combo.setCurrentText("Thu nhập" if t.type == "income" else "Chi tiêu")
+        self.category_combo.setCurrentText(t.category)
+        self.amount_spin.setValue(t.amount)
+        self.role_combo.setCurrentText(t.role)
+        self.desc_edit.setPlainText(t.description)
+        
+        self.recurring_check.setChecked(t.is_recurring)
+        self.cycle_combo.setCurrentText(t.cycle if hasattr(t, 'cycle') else "Tháng")
+        
         if t.expiry_date:
-            qtl.expiry_check.setChecked(True)
-            qtl.expiry_edit.setDate(QDate.fromString(t.expiry_date, "yyyy-MM-dd"))
+            self.expiry_check.setChecked(True)
+            self.expiry_edit.setDate(QDate.fromString(t.expiry_date, "yyyy-MM-dd"))
 
-    def get_data(qtl):
+    def get_data(self):
         return {
-            "date": qtl.date_edit.date().toString("yyyy-MM-dd"),
-            "category": qtl.category_combo.currentText(),
-            "amount": qtl.amount_spin.value(),
-            "type": "income" if qtl.type_combo.currentText() == "Thu nhập" else "expense",
-            "role": qtl.role_combo.currentText(),
-            "description": qtl.desc_edit.toPlainText(),
-            "expiry_date": qtl.expiry_edit.date().toString("yyyy-MM-dd") if qtl.expiry_check.isChecked() else "",
-            "is_recurring": qtl.recurring_check.isChecked()
+            "date": self.date_edit.date().toString("yyyy-MM-dd"),
+            "category": self.category_combo.currentText(),
+            "amount": self.amount_spin.value(),
+            "type": "income" if self.type_combo.currentText() == "Thu nhập" else "expense",
+            "role": self.role_combo.currentText(),
+            "description": self.desc_edit.toPlainText(),
+            "expiry_date": self.expiry_edit.date().toString("yyyy-MM-dd") if self.expiry_check.isChecked() else "",
+            "is_recurring": self.recurring_check.isChecked(),
+            "cycle": self.cycle_combo.currentText() if self.recurring_check.isChecked() else "Tháng"
         }
 
-
-    def on_type_changed(qtl, text):
-        qtl.category_combo.clear()
-        items = (
-            ["Lương", "Đầu tư", "Thưởng", "Kinh doanh", "Khác"]
-            if text == "Thu nhập"
-            else ["Ăn uống", "Đi lại", "Nhà cửa", "Giải trí", "Y tế", "Giáo dục", "Mua sắm", "Khác"]
-        )
-        qtl.category_combo.addItems(items)
-
-
-
+# ==========================================
+# 2. MAIN WINDOW (MANAGER UI)
+# ==========================================
 class TransactionMgr(QMainWindow):
-    def __init__(qtl, parent=None, theme_key="spring"):
+    def __init__(self, parent=None, theme_key="spring"):
         super().__init__(parent)
-        qtl.setWindowTitle("Quản Lý Thu Chi ")
-        qtl.resize(1200, 750)
-        qtl.current_theme_key = theme_key # theme services
-        qtl.transactions = []
+        self.setWindowTitle("Quản Lý Thu Chi")
+        self.resize(1200, 750)
+        self.current_theme_key = theme_key
+        
+        # --- KẾT NỐI DATA MANAGER (SINGLETON) ---
+        self.data_manager = DataManager.instance()
+        # Lắng nghe sự thay đổi dữ liệu để tự refresh
+        self.data_manager.data_changed.connect(self.refresh_all)
 
-        qtl.members = []
-        qtl.budget_nodes = []
+        self.init_ui()
 
-        qtl.init_ui()
+        # Overlay Effect
+        self.overlay = SeasonalOverlay(self.centralWidget())
+        self.overlay.show()
+        self.overlay.raise_()
+        self.apply_theme(self.current_theme_key)
+        
+        # Load dữ liệu lần đầu
+        self.refresh_all()
 
-        qtl.overlay = SeasonalOverlay(qtl.centralWidget())
-        qtl.overlay.show()
-        qtl.overlay.raise_()
-        qtl.apply_theme(qtl.current_theme_key)
-
-    def init_ui(qtl):
-        qtl.setWindowTitle("Quản Lý Thu Chi - Module Độc Lập")
-        qtl.resize(1200, 750)
-
+    def init_ui(self):
         central = QWidget()
-        qtl.setCentralWidget(central)
+        self.setCentralWidget(central)
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(15)
@@ -179,95 +208,86 @@ class TransactionMgr(QMainWindow):
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(10, 10, 10, 10)
 
-        # Custom Toolbar (Buttons Layout)
+        # Toolbar
         toolbar_layout = QHBoxLayout()
-        qtl.btn_add = qtl.create_btn("➕ Thêm", qtl.add_transaction)
-        qtl.btn_edit = qtl.create_btn("✏️ Sửa", qtl.edit_transaction)
-        qtl.btn_del = qtl.create_btn("🗑️ Xóa", qtl.delete_transaction)
-        qtl.btn_stats = qtl.create_btn("📊 Thống kê", qtl.show_stats)
+        self.btn_add = self.create_btn("➕ Thêm", self.add_transaction)
+        self.btn_edit = self.create_btn("✏️ Sửa", self.edit_transaction)
+        self.btn_del = self.create_btn("🗑️ Xóa", self.delete_transaction)
+        self.btn_stats = self.create_btn("📊 Thống kê", self.show_stats)
+        
+        self.btn_import = self.create_btn("📥 Import", self.import_csv)
+        self.btn_export = self.create_btn("📤 Export", self.export_csv)
 
-        qtl.btn_import = qtl.create_btn("📥 Import CSV", qtl.import_csv)
-        toolbar_layout.addWidget(qtl.btn_import)
-        qtl.btn_export = qtl.create_btn("📤 Export CSV", qtl.export_csv)
-        toolbar_layout.addWidget(qtl.btn_export)
-
-        # === FILTER BAR ===
-        filter_bar = QHBoxLayout()
-        qtl.keyword_edit = QLineEdit()
-        qtl.keyword_edit.setPlaceholderText("Tìm theo tên, danh mục, mô tả...")
-        qtl.keyword_edit.textChanged.connect(qtl.apply_filter)
-
-        qtl.type_filter = QComboBox()
-        qtl.type_filter.addItems(["Tất cả", "Thu nhập", "Chi tiêu"])
-        qtl.type_filter.currentTextChanged.connect(qtl.apply_filter)
-
-        qtl.from_date = QDateEdit()
-        qtl.from_date.setCalendarPopup(True)
-        qtl.from_date.setDate(QDate(2025, 1, 1))
-        qtl.from_date.dateChanged.connect(qtl.apply_filter)
-
-        qtl.to_date = QDateEdit()
-        qtl.to_date.setCalendarPopup(True)
-        qtl.to_date.setDate(QDate.currentDate())
-        qtl.to_date.dateChanged.connect(qtl.apply_filter)
-
-        filter_bar.addWidget(QLabel("Tìm:"))
-        filter_bar.addWidget(qtl.keyword_edit)
-        filter_bar.addWidget(QLabel("Loại:"))
-        filter_bar.addWidget(qtl.type_filter)
-        filter_bar.addWidget(QLabel("Từ:"))
-        filter_bar.addWidget(qtl.from_date)
-        filter_bar.addWidget(QLabel("Đến:"))
-        filter_bar.addWidget(qtl.to_date)
-        left_layout.addLayout(filter_bar)
-
-        # Theme Switcher (Để test)
-        qtl.combo_theme = QComboBox()
-        qtl.combo_theme.addItems(["spring", "summer", "autumn", "winter"])
-        qtl.combo_theme.currentTextChanged.connect(qtl.apply_theme)
-        qtl.combo_theme.setFixedWidth(100)
-
-        toolbar_layout.addWidget(qtl.btn_add)
-        toolbar_layout.addWidget(qtl.btn_edit)
-        toolbar_layout.addWidget(qtl.btn_del)
-        toolbar_layout.addWidget(qtl.btn_stats)
+        toolbar_layout.addWidget(self.btn_add)
+        toolbar_layout.addWidget(self.btn_edit)
+        toolbar_layout.addWidget(self.btn_del)
+        toolbar_layout.addWidget(self.btn_stats)
         toolbar_layout.addStretch()
-        toolbar_layout.addWidget(QLabel("Theme:"))
-        toolbar_layout.addWidget(qtl.combo_theme)
+        toolbar_layout.addWidget(self.btn_import)
+        toolbar_layout.addWidget(self.btn_export)
         left_layout.addLayout(toolbar_layout)
 
+        # Filter Bar
+        filter_bar = QHBoxLayout()
+        self.keyword_edit = QLineEdit()
+        self.keyword_edit.setPlaceholderText("Tìm kiếm...")
+        self.keyword_edit.textChanged.connect(self.apply_filter)
+
+        self.type_filter = QComboBox()
+        self.type_filter.addItems(["Tất cả", "Thu nhập", "Chi tiêu"])
+        self.type_filter.currentTextChanged.connect(self.apply_filter)
+
+        self.from_date = QDateEdit(QDate.currentDate().addMonths(-1)) # Mặc định xem 1 tháng
+        self.from_date.setCalendarPopup(True)
+        self.from_date.dateChanged.connect(self.apply_filter)
+
+        self.to_date = QDateEdit(QDate.currentDate())
+        self.to_date.setCalendarPopup(True)
+        self.to_date.dateChanged.connect(self.apply_filter)
+
+        filter_bar.addWidget(QLabel("🔍"))
+        filter_bar.addWidget(self.keyword_edit, 1)
+        filter_bar.addWidget(self.type_filter)
+        filter_bar.addWidget(QLabel("Từ:"))
+        filter_bar.addWidget(self.from_date)
+        filter_bar.addWidget(QLabel("Đến:"))
+        filter_bar.addWidget(self.to_date)
+        left_layout.addLayout(filter_bar)
+
         # Table
-        qtl.table = QTableWidget(0, 7)
-        qtl.table.setHorizontalHeaderLabels(["Ngày", "Loại", "Danh mục", "Số tiền", "Thành viên", "Mô tả", "Định kỳ"])
-        qtl.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        qtl.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        qtl.table.setAlternatingRowColors(True)
-        qtl.table.setShowGrid(False) # Modern look
-        left_layout.addWidget(qtl.table)
+        self.table = QTableWidget(0, 7)
+        self.table.setHorizontalHeaderLabels(["Ngày", "Loại", "Danh mục", "Số tiền", "Thành viên", "Mô tả", "Định kỳ"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.show_context_menu)
+        left_layout.addWidget(self.table)
 
         # Summary Bar
         summary_frame = QFrame()
         summary_frame.setObjectName("summary")
         summary_frame.setStyleSheet("background-color: rgba(255,255,255,0.5); border-radius: 10px; padding: 5px;")
         sum_layout = QHBoxLayout(summary_frame)
-        qtl.income_label = QLabel("Thu: 0")
-        qtl.expense_label = QLabel("Chi: 0")
-        qtl.balance_label = QLabel("Dư: 0")
-        sum_layout.addWidget(qtl.income_label)
-        sum_layout.addWidget(qtl.expense_label)
-        sum_layout.addWidget(qtl.balance_label)
+        self.income_label = QLabel("Thu: 0")
+        self.expense_label = QLabel("Chi: 0")
+        self.balance_label = QLabel("Dư: 0")
+        sum_layout.addWidget(self.income_label)
+        sum_layout.addWidget(self.expense_label)
+        sum_layout.addWidget(self.balance_label)
         left_layout.addWidget(summary_frame)
 
-        # === RIGHT PANEL (Visual) ===
+        # === RIGHT PANEL (Visual Graph) ===
         right_panel = QFrame()
         right_panel.setObjectName("panel")
         right_layout = QVBoxLayout(right_panel)
         
-        qtl.scene = QGraphicsScene()
-        qtl.view = QGraphicsView(qtl.scene)
-        qtl.view.setRenderHint(QPainter.RenderHint.Antialiasing)
-        qtl.view.setStyleSheet("background: transparent; border: none;") # Transparent for theme bg
-        right_layout.addWidget(qtl.view)
+        self.scene = QGraphicsScene()
+        self.view = QGraphicsView(self.scene)
+        self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.view.setStyleSheet("background: transparent; border: none;")
+        right_layout.addWidget(self.view)
 
         # Splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -276,46 +296,192 @@ class TransactionMgr(QMainWindow):
         splitter.setSizes([700, 500])
         main_layout.addWidget(splitter)
 
-        # Thêm context menu cho table
-        qtl.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        qtl.table.customContextMenuRequested.connect(qtl.show_context_menu)
+    # ==========================
+    # CÁC HÀM LOGIC (DATA MANAGER INTEGRATION)
+    # ==========================
+    
+    def refresh_all(self):
+        # Lấy dữ liệu mới nhất từ Singleton (Proxy Property)
+        transactions = self.data_manager.transactions 
+        self.update_table(transactions)
+        self.update_summary(transactions)
+        self.update_graph(transactions)
 
+    def update_summary(self, transactions):
+        inc = sum(t.amount for t in transactions if t.type == "income")
+        exp = sum(t.amount for t in transactions if t.type == "expense")
+        self.income_label.setText(f"Thu: {inc:,.0f} đ")
+        self.income_label.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 14px;")
+        
+        self.expense_label.setText(f"Chi: {exp:,.0f} đ")
+        self.expense_label.setStyleSheet("color: #c0392b; font-weight: bold; font-size: 14px;")
+        
+        self.balance_label.setText(f"Dư: {inc - exp:,.0f} đ")
+        self.balance_label.setStyleSheet("color: #2980b9; font-weight: bold; font-size: 16px;")
 
-    def create_btn(qtl, text, func):
+    # --- ADD ---
+    def add_transaction(self):
+        # Lấy danh sách roles hiện có để gợi ý
+        current_data = self.data_manager.transactions
+        roles = sorted(set(t.role for t in current_data)) or ["Bố", "Mẹ", "Cá nhân"]
+
+        dlg = TransactionDialog(self, roles, theme_key=self.current_theme_key)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            data = dlg.get_data()
+            # Tạo ID mới (dựa trên timestamp hoặc random để tránh trùng)
+            import time
+            new_id = str(int(time.time() * 1000)) 
+            
+            new_t = Transaction(id=new_id, **data)
+            
+            # GỌI DATA MANAGER
+            self.data_manager.add_transaction(new_t)
+
+    # --- EDIT ---
+    def edit_transaction(self):
+        row = self.table.currentRow()
+        if row < 0: return
+        tid = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        
+        # Tìm transaction trong list của Manager
+        trans = next((t for t in self.data_manager.transactions if t.id == tid), None)
+        
+        if trans:
+            roles = sorted(set(t.role for t in self.data_manager.transactions))
+            dlg = TransactionDialog(self, roles, trans, theme_key=self.current_theme_key)
+            if dlg.exec():
+                new_data = dlg.get_data()
+                # Cập nhật object hiện tại
+                for k, v in new_data.items(): setattr(trans, k, v)
+                
+                # GỌI DATA MANAGER CẬP NHẬT
+                self.data_manager.update_transaction(trans)
+
+    # --- DELETE ---
+    def delete_transaction(self):
+        row = self.table.currentRow()
+        if row < 0: return
+        tid = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        
+        confirm = QMessageBox.question(self, "Xóa", "Bạn có chắc muốn xóa giao dịch này?")
+        if confirm == QMessageBox.StandardButton.Yes:
+            self.data_manager.delete_transaction(tid)
+
+    # --- IMPORT / EXPORT (Giờ gọi qua Engine ẩn trong Manager) ---
+    def import_csv(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Chọn file CSV", "", "CSV Files (*.csv)")
+        if path:
+            try:
+                # Gọi Engine thông qua Manager
+                count = self.data_manager.trans_engine.import_csv(path) 
+                self.data_manager.notify_change() # Báo UI cập nhật
+                QMessageBox.information(self, "Import", f"Đã import {count} dòng.")
+            except Exception as e:
+                QMessageBox.critical(self, "Lỗi", str(e))
+
+    def export_csv(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Lưu file CSV", "", "CSV Files (*.csv)")
+        if path:
+            self.data_manager.trans_engine.export_csv(path)
+            QMessageBox.information(self, "Export", "Xuất file thành công!")
+
+    # --- HELPER GUI METHODS ---
+    def create_btn(self, text, func):
         btn = QPushButton(text)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.clicked.connect(func)
         btn.setFixedHeight(35)
         return btn
 
-    def refresh_all(qtl):
-        qtl.update_table()
-        qtl.update_summary()
-        qtl.update_graph()
+    def apply_filter(self):
+        keyword = self.keyword_edit.text().lower()
+        type_text = self.type_filter.currentText()
+        from_dt = self.from_date.date().toString("yyyy-MM-dd")
+        to_dt = self.to_date.date().toString("yyyy-MM-dd")
 
-    def update_summary(qtl): # update - thu chi dư
-        inc = sum(t.amount for t in qtl.transactions if t.type == "income")
-        exp = sum(t.amount for t in qtl.transactions if t.type == "expense")
-        qtl.income_label.setText(f"Thu: {inc:,.0f} đ")
-        qtl.expense_label.setText(f"Chi: {exp:,.0f} đ")
-        qtl.balance_label.setText(f"Dư: {inc - exp:,.0f} đ")
+        all_trans = self.data_manager.transactions
+        filtered = [
+            t for t in all_trans
+            if (keyword in t.role.lower() or keyword in t.category.lower() or keyword in t.description.lower())
+            and (type_text == "Tất cả" or (type_text == "Thu nhập" and t.type == "income") or (type_text == "Chi tiêu" and t.type == "expense"))
+            and from_dt <= t.date <= to_dt
+        ]
+        self.update_table(filtered)
+        self.update_graph(filtered)
 
-    def resizeEvent(qtl, event):
-        super().resizeEvent(event)
-        qtl.overlay.setGeometry(qtl.centralWidget().rect())
-        if not qtl.overlay.initialized: qtl.overlay.init_particles()
+    def update_table(self, data):
+        self.table.setRowCount(len(data))
+        for row, t in enumerate(data):
+            date_item = QTableWidgetItem(t.date)
+            date_item.setData(Qt.ItemDataRole.UserRole, t.id)
+            self.table.setItem(row, 0, date_item)
+            self.table.setItem(row, 1, QTableWidgetItem("Thu" if t.type == "income" else "Chi"))
+            self.table.setItem(row, 2, QTableWidgetItem(t.category))
 
+            amt_item = QTableWidgetItem(f"{t.amount:,.0f}")
+            amt_color = QColor("#27ae60") if t.type == "income" else QColor("#c0392b")
+            amt_item.setForeground(QBrush(amt_color))
+            amt_item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            self.table.setItem(row, 3, amt_item)
+            self.table.setItem(row, 4, QTableWidgetItem(t.role))
+            self.table.setItem(row, 5, QTableWidgetItem(t.description))
 
-    def apply_theme(qtl, theme_key):
-        qtl.current_theme_key = theme_key
+            ck = QCheckBox()
+            ck.setChecked(t.is_recurring)
+            ck.setEnabled(False) # Chỉ hiển thị
+            ck.setStyleSheet("margin-left:50%;")
+            self.table.setCellWidget(row, 6, ck)
+
+    def show_context_menu(self, pos):
+        menu = QMenu()
+        menu.addAction("➕ Thêm", self.add_transaction)
+        menu.addAction("✏️ Sửa", self.edit_transaction)
+        menu.addAction("🗑️ Xóa", self.delete_transaction)
+        menu.exec(self.table.viewport().mapToGlobal(pos))
+
+    def show_stats(self):
+        # Mở dialog thống kê (Code dialog này giả sử bạn đã có)
+        dlg = StatisticsDialog(self, self.data_manager.transactions)
+        dlg.exec()
+
+    def update_graph(self, transactions):
+        self.scene.clear()
+        
+        # Build data
+        roles = sorted(set(t.role for t in transactions))
+        colors = [QColor("#E74C3C"), QColor("#8E44AD"), QColor("#3498DB"), QColor("#16A085"), QColor("#F39C12")]
+        
+        members = [FamilyMember(r, colors[i % len(colors)]) for i, r in enumerate(roles)]
+        
+        for m in members:
+            m.total_income = sum(t.amount for t in transactions if t.role == m.name and t.type == "income")
+            m.total_expense = sum(t.amount for t in transactions if t.role == m.name and t.type == "expense")
+
+        if not members: return
+        cx, cy, r = 250, 250, 150
+        
+        for i, m in enumerate(members):
+            angle = 2 * math.pi * i / len(members) - math.pi/2
+            x = cx + r * math.cos(angle) - 25
+            y = cy + r * math.sin(angle) - 25
+            node = BudgetNode(m, int(x), int(y))
+            node.update_size()
+            self.scene.addItem(node)
+            
+            text = QGraphicsTextItem(m.name)
+            text.setPos(x, y + node.rect().height())
+            self.scene.addItem(text)
+
+    def apply_theme(self, theme_key):
+        self.current_theme_key = theme_key
         t = THEMES[theme_key]
         
         # 1. Update Overlay
-        qtl.overlay.set_season(theme_key)
-        if not qtl.overlay.initialized: qtl.overlay.init_particles()
+        self.overlay.set_season(theme_key)
+        if not self.overlay.initialized: self.overlay.init_particles()
 
         # 2. Main Window Background
-        qtl.centralWidget().setStyleSheet(f"background-color: {t['bg_primary']};")
+        self.centralWidget().setStyleSheet(f"background-color: {t['bg_primary']};")
 
         # 3. Panels
         panel_style = f"""
@@ -325,7 +491,7 @@ class TransactionMgr(QMainWindow):
                 border-radius: 15px;
             }}
         """
-        qtl.findChild(QFrame, "panel").setStyleSheet(panel_style)
+        self.findChild(QFrame, "panel").setStyleSheet(panel_style)
 
         # 4. Buttons
         btn_style = f"""
@@ -339,7 +505,7 @@ class TransactionMgr(QMainWindow):
             }}
             QPushButton:hover {{ background-color: {t['btn_hover']}; }}
         """
-        for btn in [qtl.btn_add, qtl.btn_edit, qtl.btn_del, qtl.btn_stats]:
+        for btn in [self.btn_add, self.btn_edit, self.btn_del, self.btn_stats]:
             btn.setStyleSheet(btn_style)
 
         # 5. Table Styling (The hard part)
@@ -364,288 +530,19 @@ class TransactionMgr(QMainWindow):
                 color: {t['text_main']};
             }}
         """
-        qtl.table.setStyleSheet(table_style)
-        qtl.table.horizontalHeader().setStyleSheet(table_style)
+        self.table.setStyleSheet(table_style)
+        self.table.horizontalHeader().setStyleSheet(table_style)
 
         # 6. Summary Labels
-        qtl.income_label.setStyleSheet(f"color: #27ae60; font-weight: bold; font-size: 14px;")
-        qtl.expense_label.setStyleSheet(f"color: #c0392b; font-weight: bold; font-size: 14px;")
-        qtl.balance_label.setStyleSheet(f"color: {t['bg_secondary']}; font-weight: bold; font-size: 16px;")
+        self.income_label.setStyleSheet(f"color: #27ae60; font-weight: bold; font-size: 14px;")
+        self.expense_label.setStyleSheet(f"color: #c0392b; font-weight: bold; font-size: 14px;")
+        self.balance_label.setStyleSheet(f"color: {t['bg_secondary']}; font-weight: bold; font-size: 16px;")
 
         # Redraw Graphics to match theme
-        qtl.update_graph()
+        self.update_graph(self.data_manager.transactions)
 
-
-
-    def update_graph(qtl):
-        qtl.scene.clear()
-        qtl.budget_nodes.clear()
-        
-        # Build data
-        roles = sorted(set(t.role for t in qtl.transactions))
-        # Màu sắc động cho các thành viên
-        colors = [
-            QColor("#E74C3C"), QColor("#8E44AD"), QColor("#3498DB"), 
-            QColor("#16A085"), QColor("#F39C12"), QColor("#D35400")
-        ]
-        qtl.members = [FamilyMember(r, colors[i % len(colors)]) for i, r in enumerate(roles)]
-        
-        for m in qtl.members:
-            m.total_income = sum(t.amount for t in qtl.transactions if t.role == m.name and t.type == "income")
-            m.total_expense = sum(t.amount for t in qtl.transactions if t.role == m.name and t.type == "expense")
-
-        # Draw
-        if not qtl.members: return
-        cx, cy, r = 250, 250, 150 # Điều chỉnh tọa độ
-        theme_border = QColor(THEMES[qtl.current_theme_key]['accent'])
-        
-        for i, m in enumerate(qtl.members):
-            angle = 2 * math.pi * i / len(qtl.members) - math.pi/2
-            x = cx + r * math.cos(angle) - 25
-            y = cy + r * math.sin(angle) - 25
-            node = BudgetNode(m, int(x), int(y), border_color=theme_border)
-            node.update_size()
-            qtl.scene.addItem(node)
-            qtl.budget_nodes.append(node)
-            
-            # Draw Text Label
-            text = QGraphicsTextItem(m.name)
-            text.setPos(x, y + node.rect().height())
-            text.setDefaultTextColor(QColor(THEMES[qtl.current_theme_key]['text_main']))
-            qtl.scene.addItem(text)
-
-
-
-    def show_context_menu(qtl, pos):
-        menu = QMenu()
-        menu.addAction("➕ Thêm", qtl.add_transaction)
-        menu.addAction("✏️ Sửa", qtl.edit_transaction)
-        menu.addAction("🗑️ Xóa", qtl.delete_transaction)
-
-        row = qtl.table.currentRow()
-        if row >= 0:
-            tid = qtl.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-            t = next((tr for tr in qtl.transactions if tr.id == tid), None)
-            if t and t.is_recurring:
-                menu.addAction("⏸️ Dừng định kỳ", lambda: qtl.stop_recurring(tid))
-
-        menu.exec(qtl.table.viewport().mapToGlobal(pos))
-
-
-    def apply_filter(qtl):
-        keyword = qtl.keyword_edit.text().lower()
-        type_text = qtl.type_filter.currentText()
-        from_dt = qtl.from_date.date().toString("yyyy-MM-dd")
-        to_dt = qtl.to_date.date().toString("yyyy-MM-dd")
-
-        filtered = [
-            t for t in qtl.transactions
-            if (keyword in t.role.lower() or keyword in t.category.lower() or keyword in t.description.lower())
-            and (type_text == "Tất cả" or (type_text == "Thu nhập" and t.type == "income") or (type_text == "Chi tiêu" and t.type == "expense"))
-            and from_dt <= t.date <= to_dt
-        ]
-        qtl.update_table(filtered)
-
-    def update_table(qtl, data=None):
-        if data is None:
-            data = qtl.transactions
-
-        qtl.table.setRowCount(len(data))
-        for row, t in enumerate(data):
-            date_item = QTableWidgetItem(t.date)
-            date_item.setData(Qt.ItemDataRole.UserRole, t.id)
-            qtl.table.setItem(row, 0, date_item)
-            qtl.table.setItem(row, 1, QTableWidgetItem("Thu" if t.type == "income" else "Chi"))
-            qtl.table.setItem(row, 2, QTableWidgetItem(t.category))
-
-            amt_item = QTableWidgetItem(f"{t.amount:,.0f}")
-            amt_color = QColor("#27ae60") if t.type == "income" else QColor("#c0392b")
-            amt_item.setForeground(QBrush(amt_color))
-            amt_item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-            qtl.table.setItem(row, 3, amt_item)
-            qtl.table.setItem(row, 4, QTableWidgetItem(t.role))
-            qtl.table.setItem(row, 5, QTableWidgetItem(t.description))
-
-            # Cột 6 = Định kỳ (checkbox)
-            ck = QCheckBox()
-            ck.setChecked(t.is_recurring)
-            ck.setStyleSheet("margin-left:50%;")
-            ck.toggled.connect(lambda checked, id=t.id: qtl.toggle_recurring(id, checked))
-            qtl.table.setCellWidget(row, 6, ck)
-
-
-    def stop_recurring(qtl, tid: str):
-        # 1. Xóa giao dịch gốc
-        qtl.transactions = [tr for tr in qtl.transactions if tr.id != tid]
-        # 2. Xóa dòng lịch sử sinh của nó
-        rec_file = pathlib.Path(__file__).parent / "recurring_last.txt"
-        if rec_file.exists():
-            lines = []
-            with open(rec_file, encoding="utf-8") as f:
-                lines = [ln for ln in f if not ln.startswith(tid + ",")]
-            with open(rec_file, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-        qtl.save_to_csv()
-        qtl.refresh_all()
-        QMessageBox.information(qtl, "Định kỳ", "Đã dừng & xóa lịch định kỳ này.")
-
-
-    def toggle_recurring(qtl, tid: str, checked: bool):
-        t = next((tr for tr in qtl.transactions if tr.id == tid), None)
-        if not t:
-            return
-        t.is_recurring = checked
-        qtl.save_to_csv()
-        qtl.refresh_all()
-
-
-
-    def load_sample_data(qtl):
-        qtl.transactions = [
-            Transaction(1, "2023-04-01", "Groceries", 150.0, "expense", "parent"),
-            Transaction(2, "2023-04-02", "Salary", 3000.0, "income", "parent"),
-            Transaction(3, "2023-04-03", "Utilities", 85.5, "expense", "child"),
-        ]
-    
-
-    def add_transaction(qtl):
-        roles = sorted(set(t.role for t in qtl.transactions)) or ["Bố", "Mẹ"]
-
-        dlg = TransactionDialog(qtl, roles, theme_key=qtl.current_theme_key)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            data = dlg.get_data()
-            new_id = str(len(qtl.transactions))
-            print("this is new id:",new_id)
-            qtl.transactions.append(Transaction(new_id, **data))
-            qtl.refresh_all()
-
-    def edit_transaction(qtl):
-        row = qtl.table.currentRow()
-        if row < 0: return
-        tid = qtl.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-        trans = next((t for t in qtl.transactions if t.id == tid), None)
-        if trans:
-            dlg = TransactionDialog(qtl, sorted(set(t.role for t in qtl.transactions)), trans, theme_key=qtl.current_theme_key)
-            if dlg.exec():
-                for k, v in dlg.get_data().items(): setattr(trans, k, v)
-                qtl.refresh_all()
-
-    def delete_transaction(qtl):
-        row = qtl.table.currentRow()
-        if row < 0: return
-        tid = qtl.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-        qtl.transactions = [t for t in qtl.transactions if t.id != tid]
-        qtl.refresh_all()
-
-    def show_stats(qtl):
-        dlg = StatisticsDialog(qtl, qtl.transactions)
-        dlg.exec()
-
-
-    def next_occurrence(qtl, last: QDate, t: Transaction) -> QDate:
-        # Sử dụng cycle từ transaction
-        if getattr(t, 'cycle', 'Tháng') == "Tuần":
-            return last.addDays(7)
-        else:  # Mặc định là Tháng
-            return last.addMonths(1)
-
-
-    def save_to_csv(qtl):
-        try:
-            os.makedirs(DATA_FILE.parent, exist_ok=True)
-            with open(DATA_FILE, "w", encoding="utf-8-sig", newline="") as f:
-                writer = csv.writer(f)
-                # Thêm header "cycle" vào cuối
-                writer.writerow(["id", "date", "category", "amount", "type", "role", "description", "expiry_date", "is_recurring", "cycle"])
-                for t in qtl.transactions:
-                    # Lấy cycle, nếu không có thì mặc định là Tháng
-                    c = getattr(t, "cycle", "Tháng")
-                    writer.writerow([t.id, t.date, t.category, t.amount, t.type, t.role, t.description, t.expiry_date, t.is_recurring, c])
-        except Exception as e:
-            QMessageBox.warning(qtl, "Lưu tự động", f"Lỗi lưu file: {e}")
-
-
-    def load_from_csv(qtl):
-        if not DATA_FILE.exists():
-            return
-        try:
-            with open(DATA_FILE, encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                qtl.transactions = []
-                for row in reader:
-                    qtl.transactions.append(
-                        Transaction(
-                            row["id"], row["date"], row["category"],
-                            float(row["amount"]), row["type"], row["role"],
-                            row["description"], row["expiry_date"],
-                            row["is_recurring"].lower() == "true",
-                            row.get("cycle", "Tháng") # <--- Đọc cycle, dùng .get để tránh lỗi với file cũ
-                        )
-                    )
-            qtl.refresh_all()
-        except Exception as e:
-            QMessageBox.warning(qtl, "Tải dữ liệu", f"Lỗi tải file: {e}")
-
-    def import_csv(qtl):
-        path, _ = QFileDialog.getOpenFileName(qtl, "Chọn file CSV", "", "CSV Files (*.csv)")
-        if not path: return
-        try:
-            with open(path, encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                imported = []
-                for row in reader:
-                    imported.append(
-                        Transaction(
-                            row.get("id", str(random.randint(1000, 9999))),
-                            row["date"], row["category"],
-                            float(row["amount"]), 
-                            row["type"], 
-                            row["role"],
-                            row.get("description", ""),
-                            row.get("expiry_date", ""),
-                            row.get("is_recurring", "false").lower() == "true",
-                            row.get("cycle", "Tháng") # tháng default 
-                        )
-                    )
-            qtl.transactions.extend(imported)
-            qtl.refresh_all()
-            qtl.save_to_csv() 
-            QMessageBox.information(qtl, "Import", f"Đã thêm {len(imported)} giao dịch.")
-        except Exception as e:
-            QMessageBox.critical(qtl, "Import", f"Lỗi: {e}")
-
-
-    def export_csv(qtl):
-        path, _ = QFileDialog.getSaveFileName(qtl, "Lưu file CSV", "", "CSV Files (*.csv)")
-        if not path: return
-        if not path.endswith(".csv"): path += ".csv"
-        try:
-            with open(path, "w", encoding="utf-8-sig", newline="") as f:
-                writer = csv.writer(f) # -init csv
-                writer.writerow(["id", "date", "category", "amount", "type", "role", "description", "expiry_date", "is_recurring", "cycle"])
-                for t in qtl.transactions:
-                    c = getattr(t, "cycle", "Tháng")
-                    writer.writerow([
-                        t.id, t.date, t.category, t.amount, t.type, t.role,
-                        t.description, t.expiry_date, t.is_recurring, c
-                    ])
-            QMessageBox.information(qtl, "Export", f"Đã xuất {len(qtl.transactions)} giao dịch.")
-        except Exception as e:
-            QMessageBox.critical(qtl, "Export", f"Lỗi: {e}")
-
-    #---- handle database--- 
-    def backup_csv(qtl):
-        try:
-            os.makedirs(BACKUP_FOLDER, exist_ok=True)
-            timestamp = QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")
-            backup_file = BACKUP_FOLDER / f"transactions_backup_{timestamp}.csv"
-            shutil.copy(DATA_FILE, backup_file)
-        except Exception as e:
-            QMessageBox.warning(qtl, "Backup", f"Lỗi sao lưu: {e}")
-
-if __name__ == "__main__":
-    import sys
-    app = QApplication(sys.argv)
-    window = TransactionMgr()
-    window.show()
-    sys.exit(app.exec())
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.overlay.setGeometry(self.centralWidget().rect())
+        if not self.overlay.initialized: 
+            self.overlay.init_particles()
