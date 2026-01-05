@@ -17,6 +17,7 @@ class Debt:
     purpose: str
     compound: bool
 
+
     def outstanding(self) -> float:
         return max(self.amount - self.paid_back, 0)
 

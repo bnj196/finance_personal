@@ -1,28 +1,75 @@
-import sys, json, csv, datetime, random, math, os.path, shutil
+import sys
+import datetime
+import random
+import math
+import os
 from pathlib import Path
-
-from lunardate import LunarDate
-from style import SeasonalOverlay, THEMES
-from core import *
-
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 
+# --- IMPORT CORE ---
+from core.data_manager import DataManager 
 
+# --- 1. THƯ VIỆN BỔ TRỢ ---
+try:
+    from lunardate import LunarDate
+    HAS_LUNAR = True
+except ImportError:
+    HAS_LUNAR = False
+    print("⚠️ Chưa cài 'lunardate'.")
 
-# -------------- GOOGLE --------------
+# --- 2. GOOGLE API ---
+try:
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+    HAS_GOOGLE = True
+except ImportError:
+    HAS_GOOGLE = False
+    print("⚠️ Chưa cài thư viện Google.")
+
+# --- CẤU HÌNH GOOGLE (File JSON vẫn ở local của App này) ---
+BASE_DIR = Path(__file__).parent
+FILE_TOKEN = BASE_DIR / 'token.json'
+FILE_CRED  = BASE_DIR / 'credentials.json'
+SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+
+# --- THEMES CONFIG ---
+THEMES = {
+    "spring": {"name": "Xuân", "bg": "#FFF8E1", "sec": "#b30000", "acc": "#FFD700", "txt": "#5D4037", "btn": "#d91e18"},
+    "summer": {"name": "Hạ", "bg": "#E1F5FE", "sec": "#0277BD", "acc": "#4FC3F7", "txt": "#01579B", "btn": "#0288d1"},
+    "autumn": {"name": "Thu", "bg": "#FFF3E0", "sec": "#E65100", "acc": "#FFB74D", "txt": "#3E2723", "btn": "#f57c00"},
+    "winter": {"name": "Đông", "bg": "#ECEFF1", "sec": "#263238", "acc": "#90A4AE", "txt": "#37474F", "btn": "#455A64"}
+}
+
+# ======================
+# 3. HELPER FUNCTIONS
+# ======================
+def format_money(val):
+    try: return f"{int(val):,}"
+    except: return "0"
+
+def get_lunar_string(date_obj):
+    if HAS_LUNAR:
+        try:
+            lunar = LunarDate.fromSolarDate(date_obj.year, date_obj.month, date_obj.day)
+            return f"{lunar.day}/{lunar.month}"
+        except: pass
+    return ""
+
+# ======================
+# 4. GOOGLE SERVICE (Giữ nguyên logic của bạn)
+# ======================
 class GoogleService:
     def __init__(self):
         self.service = None
         self.creds = None
 
     def authenticate(self):
+        if not HAS_GOOGLE: return False, "Thiếu thư viện Google"
         try:
             if os.path.exists(FILE_TOKEN):
                 self.creds = Credentials.from_authorized_user_file(str(FILE_TOKEN), SCOPES)
@@ -31,108 +78,55 @@ class GoogleService:
                     self.creds.refresh(Request())
                 else:
                     if not os.path.exists(FILE_CRED):
-                        return False, "Không tìm thấy file credentials"
+                        return False, "Thiếu file credentials.json"
                     flow = InstalledAppFlow.from_client_secrets_file(str(FILE_CRED), SCOPES)
                     self.creds = flow.run_local_server(port=0)
                 with open(FILE_TOKEN, "w") as token:
                     token.write(self.creds.to_json())
             self.service = build("calendar", "v3", credentials=self.creds)
-            return True, "Kết nối Google thành công"
+            return True, "Đã kết nối Google"
         except Exception as e:
             return False, str(e)
 
     def fetch_events(self, date_str):
         if not self.service: return []
-        start_time = f"{date_str}T00:00:00Z"
-        end_time   = f"{date_str}T23:59:59Z"
+        start = f"{date_str}T00:00:00Z"
+        end   = f"{date_str}T23:59:59Z"
         try:
-            res = self.service.events().list(calendarId='primary', timeMin=start_time, timeMax=end_time,
-                                             singleEvents=True, orderBy='startTime').execute()
+            res = self.service.events().list(calendarId='primary', timeMin=start, timeMax=end,
+                                            singleEvents=True, orderBy='startTime').execute()
             return res.get('items', [])
-        except Exception as e:
-            print("fetch_events", e); return []
+        except: return []
 
-    # def create_event_advanced(self, summary, start_dt, end_dt, description,
-    #                           popup_min, email_min):
-    #     if not self.service: return False, "Chưa đăng nhập Google"
-    #     overrides = []
-    #     if popup_min is not None:
-    #         overrides.append({'method': 'popup', 'minutes': popup_min})
-    #     if email_min is not None:
-    #         overrides.append({'method': 'email', 'minutes': email_min})
-
-    #     body = {
-    #         'summary': summary,
-    #         'description': description,
-    #         'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'Asia/Ho_Chi_Minh'},
-    #         'end':   {'dateTime': end_dt.isoformat(),   'timeZone': 'Asia/Ho_Chi_Minh'},
-    #         'reminders': {'useDefault': False, 'overrides': overrides}
-    #     }
-    #     try:
-    #         self.service.events().insert(calendarId='primary', body=body).execute()
-    #         return True, "Đã thêm sự kiện lên Google"
-    #     except Exception as e:
-    #         return False, str(e)
-
-    # def remove_event(self, event_id):
-    #     if not self.service: return False
-    #     try:
-    #         self.service.events().delete(calendarId='primary', eventId=event_id).execute()
-    #         return True
-    #     except: return False
-
-# 👇 Thay thế hàm cũ bằng hàm này để đảm bảo logic thông báo chuẩn xác
-    def create_event_advanced(self, summary, start_dt, end_dt, description,
-                              popup_min, email_min):
-        """
-        popup_min: số phút báo trước (int), nếu None là không báo
-        email_min: số phút báo trước qua email (int)
-        """
+    def create_event(self, summary, start_dt, end_dt, description, popup_min, email_min):
         if not self.service: return False, "Chưa đăng nhập Google"
-        
         overrides = []
-        
-        # Xử lý Popup (Thông báo trên điện thoại)
-        if popup_min is not None:
-            try:
-                # Ép kiểu int để tránh lỗi nếu lỡ truyền string
-                val = int(popup_min)
-                overrides.append({'method': 'popup', 'minutes': val})
-            except: pass
+        if popup_min is not None: overrides.append({'method': 'popup', 'minutes': int(popup_min)})
+        if email_min is not None: overrides.append({'method': 'email', 'minutes': int(email_min)})
 
-        # Xử lý Email
-        if email_min is not None:
-            try:
-                val = int(email_min)
-                overrides.append({'method': 'email', 'minutes': val})
-            except: pass
-
-        # Cấu hình Body chuẩn ISO
         body = {
             'summary': summary,
             'description': description,
-            'start': {
-                'dateTime': start_dt.isoformat(), 
-                'timeZone': 'Asia/Ho_Chi_Minh' # Quan trọng để đúng giờ VN
-            },
-            'end': {
-                'dateTime': end_dt.isoformat(),   
-                'timeZone': 'Asia/Ho_Chi_Minh'
-            },
-            'reminders': {
-                'useDefault': False, 
-                'overrides': overrides
-            }
+            'start': {'dateTime': start_dt.isoformat(), 'timeZone': 'Asia/Ho_Chi_Minh'},
+            'end':   {'dateTime': end_dt.isoformat(),   'timeZone': 'Asia/Ho_Chi_Minh'},
+            'reminders': {'useDefault': False, 'overrides': overrides}
         }
-        
         try:
-            event = self.service.events().insert(calendarId='primary', body=body).execute()
-            link = event.get('htmlLink', '')
-            return True, f"Đã thêm sự kiện!\nLink: {link}"
+            self.service.events().insert(calendarId='primary', body=body).execute()
+            return True, "Đã thêm sự kiện lên Google"
         except Exception as e:
             return False, str(e)
 
-# -------------- WORKERS --------------
+    def remove_event(self, event_id):
+        if not self.service: return False
+        try:
+            self.service.events().delete(calendarId='primary', eventId=event_id).execute()
+            return True
+        except: return False
+
+# ======================
+# 5. WORKERS
+# ======================
 class SyncWorker(QThread):
     data_received = pyqtSignal(list)
     def __init__(self, svc, date_str): super().__init__(); self.svc, self.date = svc, date_str
@@ -145,8 +139,7 @@ class PushWorker(QThread):
         self.svc, self.s, self.st, self.en, self.desc = svc, summary, start, end, desc
         self.popup_min, self.email_min = popup_min, email_min
     def run(self):
-        ok, msg = self.svc.create_event_advanced(self.s, self.st, self.en, self.desc,
-                                                 self.popup_min, self.email_min)
+        ok, msg = self.svc.create_event(self.s, self.st, self.en, self.desc, self.popup_min, self.email_min)
         self.finished.emit(ok, msg)
 
 class DeleteWorker(QThread):
@@ -154,467 +147,384 @@ class DeleteWorker(QThread):
     def __init__(self, svc, eid): super().__init__(); self.svc, self.eid = svc, eid
     def run(self): self.finished.emit(self.svc.remove_event(self.eid))
 
+# ======================
+# 6. VISUAL EFFECTS (Giữ nguyên vì đẹp)
+# ======================
+class Particle:
+    def __init__(self, w, h, mode="spring"):
+        self.mode = mode; self.reset(w, h, True)
+    def reset(self, w, h, first=False):
+        self.x = random.uniform(0, w); self.size = random.uniform(5, 15)
+        self.rotation = random.uniform(0, 360); self.speed_rot = random.uniform(-2, 2)
+        if self.mode == "spring":
+            self.y = random.uniform(-h, 0) if not first else random.uniform(0, h)
+            self.speed_y = random.uniform(1, 3); self.drift = random.uniform(-0.5, 0.5)
+            self.color = QColor("#FFD700") if random.choice([True, False]) else QColor("#FFB7C5"); self.shape = "flower"
+        elif self.mode == "summer":
+             self.y = h if not first else random.uniform(0, h); self.speed_y = random.uniform(-3, -1); self.drift = random.uniform(-0.2, 0.2)
+             self.color = QColor(255, 255, 255, 100); self.shape = "circle"
+        elif self.mode == "autumn":
+            self.y = random.uniform(-h, 0) if not first else random.uniform(0, h)
+            self.speed_y = random.uniform(1, 2); self.drift = random.uniform(0.5, 1.5)
+            self.color = QColor("#D35400"); self.shape = "circle"
+        else:
+            self.y = random.uniform(-h, 0); self.speed_y = 3; self.drift = 0
+            self.color = QColor("white"); self.shape = "circle"
+        self.path = QPainterPath()
+        if self.shape == "flower": self.create_flower()
+    def create_flower(self):
+        c, r = QPointF(0, 0), self.size/2
+        for i in range(5):
+            a = math.radians(i*72); t = QPointF(c.x()+r*math.cos(a), c.y()+r*math.sin(a))
+            c1 = QPointF(c.x()+r*0.6*math.cos(a-0.3), c.y()+r*0.6*math.sin(a-0.3))
+            c2 = QPointF(c.x()+r*0.6*math.cos(a+0.3), c.y()+r*0.6*math.sin(a+0.3))
+            if i == 0: self.path.moveTo(c)
+            self.path.cubicTo(c1, t, c2)
+        self.path.closeSubpath()
+    def update(self, w, h):
+        self.y += self.speed_y; self.x += self.drift + math.sin(self.y/50)*0.5; self.rotation += self.speed_rot
+        if self.speed_y > 0 and self.y > h + 20: self.reset(w, h)
+        if self.speed_y < 0 and self.y < -20: self.reset(w, h)
 
-# -------------- UI COMPONENTS --------------
+class SeasonalOverlay(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents); self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.particles = []; self.current = "spring"; self.timer = QTimer(self); self.timer.timeout.connect(self.anim); self.initialized = False
+    def set_season(self, s): self.current = s; self.init_particles()
+    def init_particles(self):
+        if self.width() > 0:
+            self.particles = [Particle(self.width(), self.height(), self.current) for _ in range(40)]
+            if not self.timer.isActive(): self.timer.start(25)
+            self.initialized = True
+    def anim(self): w, h = self.width(), self.height(); [p.update(w, h) for p in self.particles]; self.update()
+    def paintEvent(self, e):
+        p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        for pt in self.particles:
+            p.save(); p.translate(pt.x, pt.y); p.rotate(pt.rotation); p.setPen(Qt.PenStyle.NoPen); p.setBrush(QBrush(pt.color))
+            if pt.shape == "flower": p.drawPath(pt.path)
+            else: p.drawEllipse(QPointF(0, 0), pt.size/2, pt.size/2)
+            p.restore()
+
+# ======================
+# 7. UI COMPONENTS
+# ======================
 class CalendarCell(QFrame):
     clicked = pyqtSignal(str)
-    
     def __init__(self, date_obj, data, theme, is_today=False):
         super().__init__()
-        self.date_str = date_obj.strftime("%Y-%m-%d")
-        self.theme = theme
-        self.is_today = is_today
-        self.is_selected = False # Trạng thái chọn
+        self.date_str = date_obj.strftime("%Y-%m-%d"); self.theme = theme; self.is_today = is_today; self.is_selected = False
+        self.setFixedSize(110, 90); self.setCursor(Qt.CursorShape.PointingHandCursor)
+        lay = QVBoxLayout(self); lay.setContentsMargins(4, 4, 4, 4); lay.setSpacing(1)
         
-        self.setFixedSize(110, 90)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        self.main_lay = QVBoxLayout(self)
-        self.main_lay.setContentsMargins(4, 4, 4, 4); self.main_lay.setSpacing(1)
-        
-        top = QHBoxLayout()
-        lbl_day = QLabel(str(date_obj.day))
-        lbl_day.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        if date_obj.weekday() == 6: lbl_day.setStyleSheet("color:red;")
+        top = QHBoxLayout(); lbl_day = QLabel(str(date_obj.day)); lbl_day.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        if date_obj.weekday() == 6: lbl_day.setStyleSheet("color:#D32F2F;")
         top.addWidget(lbl_day)
+        if data.get('has_event'): top.addWidget(self.dot("#1976D2", "Google"))
+        if data.get('has_trans'): top.addWidget(self.dot("#9C27B0", "TC"))
+        if data.get('has_debt'): top.addWidget(self.dot("#E64A19", "Nợ"))
+        top.addStretch(); lay.addLayout(top)
         
-        # Dots
-        if data['has_note']: top.addWidget(self.dot("blue"))
-        if data['has_todo']: top.addWidget(self.dot("green"))
-        if data['has_event']: top.addWidget(self.dot("red"))
-        top.addStretch()
-        self.main_lay.addLayout(top)
+        mid = QHBoxLayout(); mid.setSpacing(1)
+        if data.get('has_note'): mid.addWidget(self.dot("#795548", "Note"))
+        if data.get('has_todo'): mid.addWidget(self.dot("#388E3C", "Mua sắm"))
+        mid.addStretch(); lay.addLayout(mid); lay.addStretch()
         
-        # Marker message
-        if data['marker_msg']:
-            lbl_m = QLabel(data['marker_msg'])
-            lbl_m.setStyleSheet("background-color:#FFF9C4;color:#F57F17;font-size:9px;padding:2px;border-radius:3px;")
-            lbl_m.setWordWrap(True)
-            self.main_lay.addWidget(lbl_m)
-        else:
-            self.main_lay.addStretch()
-            
-        # Lunar
-        lbl_lun = QLabel(data['lunar'])
-        lbl_lun.setStyleSheet("color:gray;font-size:9px;")
-        lbl_lun.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.main_lay.addWidget(lbl_lun)
-        
-        self.update_style() # Khởi tạo style lần đầu
-
-    def dot(self, c):
-        l = QLabel("●"); l.setStyleSheet(f"color:{c};font-size:8px;border:none;background:transparent;")
-        return l
-
-    def set_selected(self, selected):
-        self.is_selected = selected
+        lunar = data.get('lunar', '')
+        if lunar:
+            l = QLabel(lunar); style = "color:#C2185B;font-weight:bold;" if lunar.startswith("1/") or lunar.startswith("15/") else "color:gray;"
+            l.setStyleSheet(f"{style}font-size:9px;"); l.setAlignment(Qt.AlignmentFlag.AlignRight); lay.addWidget(l)
         self.update_style()
-
-    def update_style(self):...
-        # # Màu nền
-        # bg = "white"
-        # if self.is_today: bg = "#E3F2FD" # Màu hôm nay
-        
-        # # Viền
-        # border_color = self.theme['acc']
-        # border_width = "1px"
-        
-        # if self.is_today:
-        #     border_color = self.theme['sec']
-            
-        # if self.is_selected:
-        #     bg = "#FFF9C4" # Màu nền khi chọn (vàng nhạt)
-        #     border_color = "#E91E63" # Màu viền khi chọn (hồng đậm)
-        #     border_width = "3px" # Viền dày lên
-            
-        # self.setStyleSheet(f"""
-        #     QFrame{{
-        #         background-color:{bg};
-        #         border:{border_width} solid {border_color};
-        #         border-radius:8px;
-        #     }}
-        #     QFrame:hover{{
-        #         background-color:{self.theme['bg']};
-        #         border:2px solid {self.theme['sec']};
-        #     }}
-        # """)
-
-    def mousePressEvent(self, e):
-        self.clicked.emit(self.date_str)
+    def dot(self, color, tip): l = QLabel("●"); l.setToolTip(tip); l.setStyleSheet(f"color:{color};font-size:9px;margin-left:1px;"); return l
+    def set_selected(self, val): self.is_selected = val; self.update_style()
+    def update_style(self):
+        bg, border, width = "white", self.theme['acc'], "1px"
+        if self.is_today: bg, border = "#E3F2FD", self.theme['sec']
+        if self.is_selected: bg, border, width = "#FFF9C4", "#E91E63", "2px"
+        self.setStyleSheet(f"QFrame {{ background-color:{bg}; border:{width} solid {border}; border-radius:8px; }} QFrame:hover {{ border:2px solid {self.theme['sec']}; }}")
+    def mousePressEvent(self, e): self.clicked.emit(self.date_str)
 
 class EventItemWidget(QWidget):
-    def __init__(self, title, time_str, is_google=False, eid=None):
+    def __init__(self, title, sub, icon, color, eid=None):
         super().__init__(); self.eid = eid
-        lay = QVBoxLayout(self); lay.setContentsMargins(5, 5, 5, 5)
-        lbl_title = QLabel(title); lbl_title.setStyleSheet("font-weight:bold;font-size:12px;border:none;")
-        lbl_time = QLabel(time_str); lbl_time.setStyleSheet("color:#555;font-size:10px;border:none;")
-        lay.addWidget(lbl_title); lay.addWidget(lbl_time)
-        bg = "#E8F5E9" if is_google else "#FFF3E0"
-        self.setStyleSheet(f"background-color:{bg};border-radius:5px;")
+        lay = QHBoxLayout(self); lay.setContentsMargins(5,5,5,5)
+        lbl_ic = QLabel(icon); lbl_ic.setStyleSheet("font-size:16px;")
+        v = QVBoxLayout(); t = QLabel(title); t.setStyleSheet(f"font-weight:bold;color:{color};"); s = QLabel(sub); s.setStyleSheet("color:#666;font-size:10px;")
+        v.addWidget(t); v.addWidget(s); lay.addWidget(lbl_ic); lay.addLayout(v); lay.addStretch()
+        self.setStyleSheet("background:rgba(255,255,255,0.7); border-radius:5px; margin-bottom:2px;")
 
-# -------------- DIALOG PUSH CUSTOM --------------
 class QuickGoogleDialog(QDialog):
-    # [FIX] Thêm giá trị mặc định cho summary và desc để tránh lỗi
-    def __init__(self, parent, date_str, default_summary="", default_desc=""):
+    def __init__(self, parent, date_str, def_title="", def_desc=""):
         super().__init__(parent)
-        self.setWindowTitle(f"Push Google – {date_str}")
-        self.setFixedSize(400, 300)
-        self.date_str = date_str
-
+        self.setWindowTitle(f"Push Google - {date_str}"); self.setFixedSize(400, 280)
         lay = QFormLayout(self)
-
-        self.inp_title = QLineEdit(default_summary)
-        self.inp_desc  = QLineEdit(default_desc)
+        self.inp_title = QLineEdit(def_title); self.inp_title.setPlaceholderText("Tiêu đề")
+        self.inp_desc  = QLineEdit(def_desc); self.inp_desc.setPlaceholderText("Mô tả")
         now = QTime.currentTime()
-        self.time_start = QTimeEdit(now.addSecs(60))   # mặc định sau 1 phút
-        self.time_end   = QTimeEdit(now.addSecs(180)) # sau 3 phút
-        # popup
-        self.sb_popup = QSpinBox()
-        self.sb_popup.setRange(-1, 999)
-        self.sb_popup.setValue(0)
-        self.sb_popup.setSuffix(" phút")
-        self.sb_popup.setSpecialValueText("Tắt")
-        # email
-        self.sb_email = QSpinBox()
-        self.sb_email.setRange(-1, 999)
-        self.sb_email.setValue(1)
-        self.sb_email.setSuffix(" phút")
-        self.sb_email.setSpecialValueText("Tắt")
-
-        lay.addRow("Tiêu đề:", self.inp_title)
-        lay.addRow("Mô tả:",  self.inp_desc)
-        lay.addRow("Giờ bắt đầu:", self.time_start)
-        lay.addRow("Giờ kết thúc:", self.time_end)
-        lay.addRow("Nhắc Popup:", self.sb_popup)
-        lay.addRow("Nhắc Email:", self.sb_email)
-
+        self.t_start = QTimeEdit(now.addSecs(300)); self.t_end = QTimeEdit(now.addSecs(3900))
+        self.sb_pop = QSpinBox(); self.sb_pop.setValue(10); self.sb_pop.setSuffix(" phút"); self.sb_pop.setRange(-1, 1440)
+        self.sb_mail= QSpinBox(); self.sb_mail.setValue(-1); self.sb_mail.setSuffix(" phút"); self.sb_mail.setSpecialValueText("Tắt"); self.sb_mail.setRange(-1, 1440)
+        lay.addRow("Tiêu đề:", self.inp_title); lay.addRow("Mô tả:", self.inp_desc)
+        lay.addRow("Bắt đầu:", self.t_start); lay.addRow("Kết thúc:", self.t_end)
+        lay.addRow("Popup:", self.sb_pop); lay.addRow("Email:", self.sb_mail)
         btn = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        btn.accepted.connect(self.accept)
-        btn.rejected.connect(self.reject)
-        lay.addRow(btn)
+        btn.accepted.connect(self.accept); btn.rejected.connect(self.reject); lay.addRow(btn)
+    def get_data(self): return self.inp_title.text(), self.t_start.time(), self.t_end.time(), self.inp_desc.text(), self.sb_pop.value(), self.sb_mail.value()
 
-    def get_data(self):
-        d = datetime.date.fromisoformat(self.date_str)
-        start_time = datetime.time(self.time_start.time().hour(), self.time_start.time().minute())
-        end_time   = datetime.time(self.time_end.time().hour(), self.time_end.time().minute())
-        dt_start = datetime.datetime.combine(d, start_time)
-        dt_end   = datetime.datetime.combine(d, end_time)
-        popup_min = None if self.sb_popup.value() == -1 else self.sb_popup.value()
-        email_min = None if self.sb_email.value() == -1 else self.sb_email.value()
-        return self.inp_title.text(), dt_start, dt_end, self.inp_desc.text(), popup_min, email_min
-
-# -------------- MAIN APP --------------
+# ======================
+# 8. MAIN CALENDAR MANAGER (REFACTORED)
+# ======================
 class CalendarMgr(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Lịch Vạn Năng & Tài Chính – v2.1")
-        self.resize(1300, 800)
-        init_csv_files()
-        self.google_service = GoogleService()
-        self.notes = load_json(FILE_NOTES); self.todos = load_json(FILE_TODOS); self.markers = load_csv_dict(FILE_MARKERS)
-        self.trans = []; self.loans = []; self.reload_finance()
-        self.current_date = datetime.date.today().replace(day=1)
-        self.selected_date_str = datetime.date.today().isoformat()
-        self.google_events_cache = {}; self.current_theme_key = "spring"
+        self.setWindowTitle("Ultimate Calendar Manager v4.0 (Connected)")
+        self.resize(1280, 850)
         
-        # [NEW] Danh sách quản lý các ô lịch
-        self.cells = [] 
-
+        # --- KẾT NỐI DATA MANAGER ---
+        self.data_mgr = DataManager.instance()
+        # Khi DataManager báo có thay đổi (từ bất kỳ đâu), reload lịch và chi tiết
+        self.data_mgr.data_changed.connect(self.reload_calendar)
+        self.data_mgr.data_changed.connect(lambda: self.load_details(self.sel_date))
+        
+        self.google_svc = GoogleService()
+        self.curr_date = datetime.date.today().replace(day=1)
+        self.sel_date = datetime.date.today().isoformat()
+        self.google_cache = {}
+        self.cells = []
+        self.current_theme = "spring"
+        
         self.init_ui()
         self.overlay = SeasonalOverlay(self.centralWidget()); self.overlay.show(); self.overlay.raise_()
         self.apply_theme("spring")
 
-    def reload_finance(self):
-        self.trans = load_csv_dict(TRANS_CSV); self.loans = load_csv_dict(LOAN_CSV)
-
-    # ---------- UI ----------
     def init_ui(self):
-        central = QWidget(); self.setCentralWidget(central); main = QHBoxLayout(central)
-
-        left = QFrame(); left.setObjectName("panel_left"); leftLay = QVBoxLayout(left)
+        w = QWidget(); self.setCentralWidget(w); main = QHBoxLayout(w)
+        left = QFrame(); left.setObjectName("panel_left"); left_l = QVBoxLayout(left)
         nav = QHBoxLayout()
         btn_prev = QPushButton("◀"); btn_prev.clicked.connect(lambda: self.change_month(-1))
-        self.lbl_month_year = QLabel(); self.lbl_month_year.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        self.lbl_my = QLabel(); self.lbl_my.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         btn_next = QPushButton("▶"); btn_next.clicked.connect(lambda: self.change_month(1))
-        self.combo_theme = QComboBox(); self.combo_theme.addItems(list(THEMES.keys())); self.combo_theme.currentTextChanged.connect(self.apply_theme); self.combo_theme.setFixedWidth(100)
-        nav.addWidget(btn_prev); nav.addWidget(self.lbl_month_year); nav.addWidget(btn_next); nav.addStretch()
-        nav.addWidget(QLabel("Giao diện:")); nav.addWidget(self.combo_theme)
-        leftLay.addLayout(nav)
-        self.calendar_grid = QGridLayout(); leftLay.addLayout(self.calendar_grid); leftLay.addStretch()
-        main.addWidget(left)
-
-        right = QFrame(); right.setObjectName("panel_right"); right.setFixedWidth(420); rightLay = QVBoxLayout(right)
-        self.lbl_selected_date = QLabel("Chọn một ngày..."); self.lbl_selected_date.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold)); rightLay.addWidget(self.lbl_selected_date)
-        self.btn_sync_google = QPushButton("🔄 Đồng bộ Google Calendar"); self.btn_sync_google.clicked.connect(self.sync_google); rightLay.addWidget(self.btn_sync_google)
+        self.cmb_theme = QComboBox(); self.cmb_theme.addItems(list(THEMES.keys())); self.cmb_theme.currentTextChanged.connect(self.apply_theme)
+        nav.addWidget(btn_prev); nav.addWidget(self.lbl_my); nav.addWidget(btn_next); nav.addStretch(); nav.addWidget(self.cmb_theme)
+        left_l.addLayout(nav)
+        self.grid = QGridLayout(); left_l.addLayout(self.grid); left_l.addStretch()
+        main.addWidget(left, 2)
+        
+        right = QFrame(); right.setObjectName("panel_right"); right_l = QVBoxLayout(right)
+        self.lbl_detail = QLabel("Chi tiết"); self.lbl_detail.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        self.btn_sync = QPushButton("🔄 Đồng bộ Google"); self.btn_sync.clicked.connect(self.sync_google)
+        
         self.tabs = QTabWidget()
-        self.list_events = QListWidget(); self.list_events.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu); self.list_events.customContextMenuRequested.connect(self.ctx_event)
-        self.list_notes  = QListWidget(); self.list_notes.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu); self.list_notes.customContextMenuRequested.connect(self.ctx_note)
-        self.list_todos  = QListWidget(); self.list_todos.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu); self.list_todos.customContextMenuRequested.connect(self.ctx_todo)
-        self.tabs.addTab(self.list_events, "Sự kiện"); self.tabs.addTab(self.list_notes, "Ghi chú"); self.tabs.addTab(self.list_todos, "Mua sắm"); rightLay.addWidget(self.tabs)
-
-        grp_note = QGroupBox("Thêm Ghi chú"); lay_note = QHBoxLayout(grp_note)
-        self.inp_note_content = QLineEdit(); self.inp_note_content.setPlaceholderText("Nội dung..."); btn_note = QPushButton("Lưu"); btn_note.clicked.connect(self.add_note)
-        lay_note.addWidget(self.inp_note_content); lay_note.addWidget(btn_note); rightLay.addWidget(grp_note)
-
-        grp_todo = QGroupBox("Thêm Mua sắm"); lay_todo = QHBoxLayout(grp_todo)
-        self.inp_todo_name = QLineEdit(); self.inp_todo_name.setPlaceholderText("Tên món...")
-        self.inp_todo_price = QLineEdit(); self.inp_todo_price.setPlaceholderText("Giá..."); self.inp_todo_price.setFixedWidth(80)
-        btn_todo = QPushButton("Thêm"); btn_todo.clicked.connect(self.add_todo)
-        lay_todo.addWidget(self.inp_todo_name); lay_todo.addWidget(self.inp_todo_price); lay_todo.addWidget(btn_todo); rightLay.addWidget(grp_todo)
-
-        btn_add_google = QPushButton("📅 Đặt lịch Google (hẹn giờ)")
-        btn_add_google.setStyleSheet("background-color:#4285F4;color:white;font-weight:bold;padding:8px;")
-        btn_add_google.clicked.connect(self.open_google_add)
-        rightLay.addWidget(btn_add_google)
-
-        main.addWidget(right)
-
-        # menu bar
-        file_menu = self.menuBar().addMenu("File")
-        file_menu.addAction("Import CSV giao dịch", self.import_csv_trans)
-        google_menu = self.menuBar().addMenu("Google")
-        google_menu.addAction("Đăng nhập / Refresh", self.do_google_auth)
-
-        self.render_calendar()
-
-    # ---------- THEME ----------
-    def apply_theme(self, key):...
-        # self.current_theme_key = key; t = THEMES[key]; self.overlay.set_season(key)
-        # self.centralWidget().setStyleSheet(f"background-color:{t['bg']};")
-        # style = f"""
-        #     QFrame#panel_left, QFrame#panel_right{{background-color:rgba(255,255,255,0.85);border:1px solid {t['acc']};border-radius:12px;}}
-        #     QLabel{{color:{t['txt']};}} QGroupBox{{border:1px solid {t['sec']};border-radius:5px;margin-top:10px;font-weight:bold;color:{t['sec']};}} QGroupBox::title{{subcontrol-origin: margin;left:10px;padding:0 3px;}}
-        # """
-        # self.setStyleSheet(style)
-        # btn_style = f"QPushButton{{background-color:{t['sec']};color:white;border-radius:4px;padding:6px;}}"
-        # for btn in self.findChildren(QPushButton):
-        #     if "Google" not in btn.text(): btn.setStyleSheet(btn_style)
+        self.lst_evt = QListWidget(); self.lst_evt.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu); self.lst_evt.customContextMenuRequested.connect(self.ctx_evt)
+        self.lst_not = QListWidget(); self.lst_not.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu); self.lst_not.customContextMenuRequested.connect(self.ctx_not)
+        self.lst_tod = QListWidget(); self.lst_tod.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu); self.lst_tod.customContextMenuRequested.connect(self.ctx_tod)
+        self.tabs.addTab(self.lst_evt, "Tài chính & Sự kiện"); self.tabs.addTab(self.lst_not, "Ghi chú"); self.tabs.addTab(self.lst_tod, "Mua sắm")
         
-        # # Reload để update style của các ô lịch
-        # self.render_calendar()
-
-    # ---------- CALENDAR ----------
-    def change_month(self, delta):
-        m, y = self.current_date.month + delta, self.current_date.year
-        if m > 12: m, y = 1, y + 1
-        elif m < 1: m, y = 12, y - 1
-        self.current_date = datetime.date(y, m, 1); self.render_calendar()
-
-    def render_calendar(self):
-        # Clear cũ
-        for i in reversed(range(self.calendar_grid.count())):
-            self.calendar_grid.itemAt(i).widget().setParent(None)
+        grp_n = QGroupBox("Ghi chú nhanh"); gl1 = QHBoxLayout(grp_n)
+        self.inp_n = QLineEdit(); self.inp_n.setPlaceholderText("Nội dung...")
+        btn_n = QPushButton("Lưu"); btn_n.clicked.connect(self.add_note)
+        gl1.addWidget(self.inp_n); gl1.addWidget(btn_n)
         
-        self.cells = [] # Reset list cell
+        grp_t = QGroupBox("Thêm mua sắm"); gl2 = QHBoxLayout(grp_t)
+        self.inp_t_n = QLineEdit(); self.inp_t_n.setPlaceholderText("Tên món")
+        self.inp_t_p = QLineEdit(); self.inp_t_p.setPlaceholderText("Giá"); self.inp_t_p.setFixedWidth(60)
+        btn_t = QPushButton("Thêm"); btn_t.clicked.connect(self.add_todo)
+        gl2.addWidget(self.inp_t_n); gl2.addWidget(self.inp_t_p); gl2.addWidget(btn_t)
+        
+        btn_push = QPushButton("📅 Tạo sự kiện Google (Tùy chỉnh)"); btn_push.clicked.connect(lambda: self.push_to_google("", ""))
+        
+        right_l.addWidget(self.lbl_detail); right_l.addWidget(self.btn_sync); right_l.addWidget(self.tabs)
+        right_l.addWidget(grp_n); right_l.addWidget(grp_t); right_l.addWidget(btn_push)
+        main.addWidget(right, 1)
+        self.menuBar().addAction("Đăng nhập Google", self.do_auth)
 
-        self.lbl_month_year.setText(self.current_date.strftime("Tháng %m / %Y"))
-        headers = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+    def apply_theme(self, key):
+        self.current_theme = key; t = THEMES[key]; self.overlay.set_season(key)
+        self.centralWidget().setStyleSheet(f"background-color:{t['bg']};")
+        self.setStyleSheet(f"""
+            QFrame#panel_left, QFrame#panel_right {{ background:rgba(255,255,255,0.9); border:1px solid {t['acc']}; border-radius:10px; }}
+            QGroupBox {{ color:{t['sec']}; font-weight:bold; border:1px solid {t['sec']}; border-radius:5px; margin-top:5px; }}
+            QGroupBox::title {{ subcontrol-origin: margin; left:10px; padding:0 3px; }}
+            QPushButton {{ background-color:{t['sec']}; color:white; border-radius:4px; padding:5px; }}
+            QTabWidget::pane {{ border: 1px solid {t['acc']}; }}
+        """)
+        self.reload_calendar()
+
+    def change_month(self, d):
+        m, y = self.curr_date.month + d, self.curr_date.year
+        if m > 12: m, y = 1, y+1
+        elif m < 1: m, y = 12, y-1
+        self.curr_date = datetime.date(y, m, 1)
+        self.reload_calendar()
+
+    def reload_calendar(self):
+        for i in reversed(range(self.grid.count())): 
+            if self.grid.itemAt(i).widget(): self.grid.itemAt(i).widget().setParent(None)
+        self.cells = []
+        self.lbl_my.setText(self.curr_date.strftime("Tháng %m / %Y"))
+        headers = ["T2","T3","T4","T5","T6","T7","CN"]
         for i, h in enumerate(headers):
-            lbl = QLabel(h); lbl.setAlignment(Qt.AlignmentFlag.AlignCenter); lbl.setStyleSheet("font-weight:bold;"); self.calendar_grid.addWidget(lbl, 0, i)
+            l = QLabel(h); l.setAlignment(Qt.AlignmentFlag.AlignCenter); l.setStyleSheet("font-weight:bold;")
+            self.grid.addWidget(l, 0, i)
+            
+        # DATA SOURCES (Lấy từ Data Manager)
+        trans_dates = {t.date for t in self.data_mgr.transactions}
+        debt_dates = {d.due_date for d in self.data_mgr.debts if hasattr(d,'due_date')}
         
-        first_weekday = self.current_date.weekday()
-        days_in_month = (self.current_date.replace(month=self.current_date.month % 12 + 1, day=1) - datetime.timedelta(days=1)).day
+        first = self.curr_date.replace(day=1); start_w = first.weekday()
+        days_n = (first.replace(month=first.month%12+1, day=1) - datetime.timedelta(days=1)).day
+        r, c = 1, start_w; today = datetime.date.today()
         
-        row, col = 1, first_weekday
-        theme = THEMES[self.current_theme_key]
-        today_date = datetime.date.today()
+        for d in range(1, days_n+1):
+            dt = datetime.date(self.curr_date.year, self.curr_date.month, d); s_dt = dt.isoformat()
+            
+            # [REFACTORED] Kiểm tra dữ liệu qua Data Manager
+            check = self.data_mgr.check_has_data(s_dt)
+            
+            data = {
+                'has_note': check['has_note'],
+                'has_todo': check['has_todo'],
+                'has_event': s_dt in self.google_cache,
+                'has_trans': s_dt in trans_dates,
+                'has_debt': s_dt in debt_dates,
+                'lunar': get_lunar_string(dt)
+            }
+            cell = CalendarCell(dt, data, THEMES[self.current_theme], is_today=(dt == today))
+            cell.clicked.connect(self.load_details); 
+            if s_dt == self.sel_date: cell.set_selected(True)
+            self.grid.addWidget(cell, r, c); self.cells.append(cell)
+            c += 1; 
+            if c > 6: c = 0; r += 1
+            
+    def load_details(self, date_str):
+        self.sel_date = date_str
+        self.lbl_detail.setText(f"Chi tiết: {date_str}")
+        for c in self.cells: c.set_selected(c.date_str == date_str)
+        self.lst_evt.clear(); self.lst_not.clear(); self.lst_tod.clear()
         
-        for day in range(1, days_in_month + 1):
-            d_date = datetime.date(self.current_date.year, self.current_date.month, day)
-            d_str = d_date.isoformat()
-            
-            marker_txt = next((m['message'] for m in self.markers if m.get('date') == d_str), "")
-            cell_data = {'has_note': d_str in self.notes and len(self.notes[d_str]) > 0,
-                         'has_todo': d_str in self.todos and len(self.todos[d_str]) > 0,
-                         'has_event': d_str in self.google_events_cache,
-                         'lunar': get_lunar_string(d_date), 'marker_msg': marker_txt}
-            
-            is_today = (d_date == today_date)
-            
-            # Tạo Cell
-            cell = CalendarCell(d_date, cell_data, theme, is_today)
-            
-            # [FIX] Đánh dấu nếu đang được chọn (để giữ trạng thái khi đổi tháng/reload)
-            if d_str == self.selected_date_str:
-                cell.set_selected(True)
-            
-            cell.clicked.connect(self.load_date_details)
-            self.calendar_grid.addWidget(cell, row, col)
-            self.cells.append(cell) # Lưu vào list để quản lý selection
+        # 1. Google
+        if date_str in self.google_cache:
+            for e in self.google_cache[date_str]:
+                t_str = e.get('start', {}).get('dateTime', 'All')[11:16]
+                self.add_evt(e.get('summary','No Title'), f"Google: {t_str}", "📅", "#1976D2", e.get('id'))
+        # 2. Finance
+        for t in self.data_mgr.transactions:
+            if t.date == date_str:
+                self.add_evt(f"{t.category}: {format_money(t.amount)}", t.description or "", "💸" if t.type=="expense" else "💰", "#D32F2F" if t.type=="expense" else "#388E3C")
+        for d in self.data_mgr.debts:
+            if hasattr(d, 'due_date') and d.due_date == date_str:
+                side = getattr(d, 'side', 'unknown')
+                self.add_evt(f"Đáo hạn: {getattr(d,'name','?')}", f"{format_money(d.amount)}đ", "📤" if side in ['borrowing', 'payable'] else "📥", "#E64A19")
+        
+        # [REFACTORED] 3. Notes & Todos (Lấy từ Data Manager)
+        for n in self.data_mgr.get_cal_notes(date_str): self.lst_not.addItem(n)
+        
+        for i, t in enumerate(self.data_mgr.get_cal_todos(date_str)):
+            w = QWidget(); hl = QHBoxLayout(w); hl.setContentsMargins(0,0,0,0)
+            cb = QCheckBox(); cb.setChecked(t['done'])
+            # Gọi hàm toggle qua Data Manager
+            cb.toggled.connect(lambda c, idx=i: self.tog_todo(idx, c))
+            l = QLabel(f"{t['name']} - {format_money(t['price'])}đ")
+            if t['done']: l.setStyleSheet("text-decoration:line-through; color:gray;")
+            hl.addWidget(cb); hl.addWidget(l)
+            item = QListWidgetItem(self.lst_tod); item.setSizeHint(w.sizeHint()); self.lst_tod.setItemWidget(item, w)
 
-            col += 1
-            if col > 6: col = 0; row += 1
+    def add_evt(self, t, s, i, c, eid=None):
+        w = EventItemWidget(t, s, i, c, eid)
+        it = QListWidgetItem(self.lst_evt); it.setSizeHint(w.sizeHint()); self.lst_evt.setItemWidget(it, w)
 
-    # ---------- DETAILS ----------
-    def load_date_details(self, date_str):
-        self.selected_date_str = date_str
-        
-        # [NEW] Cập nhật giao diện Selection
-        for c in self.cells:
-            if c.date_str == date_str:
-                c.set_selected(True)
-            else:
-                c.set_selected(False)
-
-        self.lbl_selected_date.setText(f"Chi tiết: {date_str}")
-        
-        # notes
-        self.list_notes.clear()
-        for note in self.notes.get(date_str, []): self.list_notes.addItem(note)
-        # todos
-        self.list_todos.clear()
-        todos = self.todos.get(date_str, [])
-        for i, t in enumerate(todos):
-            w = QWidget(); lay = QHBoxLayout(w); lay.setContentsMargins(0, 0, 0, 0)
-            cb = QCheckBox(); cb.setChecked(t.get('done', False)); cb.toggled.connect(lambda c, idx=i: self.toggle_todo(idx, c))
-            name = t.get('name', t.get('text', 'Không tên')); price_text = format_money(t.get('price', 0))
-            lbl = QLabel(f"{name} – {price_text} đ")
-            if t.get('done'): lbl.setStyleSheet("text-decoration:line-through;color:gray;")
-            lay.addWidget(cb); lay.addWidget(lbl)
-            item = QListWidgetItem(self.list_todos); item.setSizeHint(w.sizeHint()); self.list_todos.setItemWidget(item, w)
-        # events
-        self.list_events.clear()
-        # local
-        for l in self.loans:
-            if l.get('due_date') == date_str:
-                w = EventItemWidget(f"Vay: {l.get('counterparty', '')}", f"{format_money(l.get('amount', 0))}đ", is_google=False); item = QListWidgetItem(self.list_events); item.setSizeHint(w.sizeHint()); self.list_events.setItemWidget(item, w)
-        for t in self.trans:
-            if t.get('expiry_date') == date_str:
-                w = EventItemWidget(f"Hết hạn: {t.get('description', '')}", t.get('category', ''), is_google=False); item = QListWidgetItem(self.list_events); item.setSizeHint(w.sizeHint()); self.list_events.setItemWidget(item, w)
-        # google
-        if date_str in self.google_events_cache:
-            for ev in self.google_events_cache[date_str]:
-                summary = ev.get('summary', '(Không tiêu đề)')
-                start_raw = ev.get('start', {}).get('dateTime', ev.get('start', {}).get('date', ''))
-                time_display = "Cả ngày"
-                if 'T' in start_raw:
-                    try: time_display = datetime.datetime.fromisoformat(start_raw).strftime("%H:%M")
-                    except: pass
-                w = EventItemWidget(summary, time_display, is_google=True, eid=ev.get('id')); item = QListWidgetItem(self.list_events); item.setSizeHint(w.sizeHint()); self.list_events.setItemWidget(item, w)
-
-    # ---------- ACTIONS ----------
+    # --- [REFACTORED] ACTIONS ---
     def add_note(self):
-        txt = self.inp_note_content.text().strip()
-        if not txt: return
-        self.notes.setdefault(self.selected_date_str, []).append(txt)
-        save_json(self.notes, FILE_NOTES); self.inp_note_content.clear(); self.load_date_details(self.selected_date_str); self.render_calendar()
+        t = self.inp_n.text()
+        if t: 
+            self.data_mgr.add_cal_note(self.sel_date, t) # Gọi Data Manager
+            self.inp_n.clear()
 
     def add_todo(self):
-        name = self.inp_todo_name.text().strip()
-        if not name: return
-        try: price = int(self.inp_todo_price.text().strip())
-        except: price = 0
-        self.todos.setdefault(self.selected_date_str, []).append({"name": name, "price": price, "done": False})
-        save_json(self.todos, FILE_TODOS); self.inp_todo_name.clear(); self.inp_todo_price.clear(); self.load_date_details(self.selected_date_str); self.render_calendar()
+        n = self.inp_t_n.text(); p = self.inp_t_p.text()
+        if n:
+            try: p_val = int(p)
+            except: p_val = 0
+            self.data_mgr.add_cal_todo(self.sel_date, n, p_val) # Gọi Data Manager
+            self.inp_t_n.clear(); self.inp_t_p.clear()
 
-    def toggle_todo(self, idx, checked):
-        if self.selected_date_str in self.todos:
-            self.todos[self.selected_date_str][idx]['done'] = checked
-            save_json(self.todos, FILE_TODOS); self.load_date_details(self.selected_date_str)
+    def tog_todo(self, idx, val):
+        self.data_mgr.toggle_cal_todo(self.sel_date, idx, val) # Gọi Data Manager
 
-    # ---------- CONTEXT ----------
-    def ctx_note(self, pos):
-        item = self.list_notes.itemAt(pos)
+    def del_item(self, type_, row):
+        if type_ == 'note': self.data_mgr.delete_cal_note(self.sel_date, row)
+        else: self.data_mgr.delete_cal_todo(self.sel_date, row)
+
+    def ctx_not(self, pos): self.show_ctx(pos, self.lst_not, 'note')
+    def ctx_tod(self, pos): self.show_ctx(pos, self.lst_tod, 'todo')
+    
+    def show_ctx(self, pos, lst, type_):
+        item = lst.itemAt(pos)
         if not item: return
-        row = self.list_notes.row(item)
+        row = lst.row(item)
         menu = QMenu()
-        menu.addAction("❌ Xóa", lambda: self.del_note(row))
-        menu.addAction("📅 Push Google", lambda: self.push_to_google(item.text(), "Ghi chú"))
-        menu.exec(self.list_notes.mapToGlobal(pos))
-
-    def del_note(self, row):
-        notes = self.notes.get(self.selected_date_str, [])
-        if isinstance(notes, str): notes = [notes]
-        notes.pop(row)
-        if not notes: self.notes.pop(self.selected_date_str, None)
-        else: self.notes[self.selected_date_str] = notes
-        save_json(self.notes, FILE_NOTES); self.load_date_details(self.selected_date_str); self.render_calendar()
-
-    def ctx_todo(self, pos):
-        item = self.list_todos.itemAt(pos)
+        menu.addAction("❌ Xóa", lambda: self.del_item(type_, row))
+        
+        # Lấy text để push google cần gọi lại Data Manager để lấy đúng item
+        txt = ""
+        if type_ == 'note': 
+            notes = self.data_mgr.get_cal_notes(self.sel_date)
+            if row < len(notes): txt = notes[row]
+        else: 
+            todos = self.data_mgr.get_cal_todos(self.sel_date)
+            if row < len(todos): 
+                d = todos[row]
+                txt = f"Mua {d['name']} ({format_money(d['price'])})"
+            
+        if txt: menu.addAction("📅 Push Google", lambda: self.push_to_google(txt, "Reminder"))
+        menu.exec(lst.mapToGlobal(pos))
+        
+    def ctx_evt(self, pos):
+        item = self.lst_evt.itemAt(pos); 
         if not item: return
-        row = self.list_todos.row(item)
-        menu = QMenu()
-        menu.addAction("❌ Xóa", lambda: self.del_todo(row))
-        t = self.todos[self.selected_date_str][row]
-        txt = f"Mua: {t.get('name', '')} – {format_money(t.get('price', 0))}đ"
-        menu.addAction("📅 Push Google", lambda: self.push_to_google(txt, "Mua sắm"))
-        menu.exec(self.list_todos.mapToGlobal(pos))
+        w = self.lst_evt.itemWidget(item)
+        if w.eid: 
+            m = QMenu(); m.addAction("🗑️ Xóa trên Google", lambda: self.del_google(w.eid)); m.exec(self.lst_evt.mapToGlobal(pos))
 
-    def del_todo(self, row):
-        self.todos[self.selected_date_str].pop(row)
-        if not self.todos[self.selected_date_str]: self.todos.pop(self.selected_date_str, None)
-        save_json(self.todos, FILE_TODOS); self.load_date_details(self.selected_date_str); self.render_calendar()
-
-    def ctx_event(self, pos):
-        item = self.list_events.itemAt(pos)
-        if not item: return
-        widget = self.list_events.itemWidget(item)
-        if not widget or not widget.eid: return
-        menu = QMenu(); menu.addAction("🗑️ Xóa trên Google", lambda: self.del_google_event(widget.eid))
-        menu.exec(self.list_events.mapToGlobal(pos))
-
-    def del_google_event(self, eid):
-        if QMessageBox.question(self, "Xác nhận", "Xóa vĩnh viễn sự kiện này?") != QMessageBox.StandardButton.Yes: return
-        self.btn_sync_google.setEnabled(False); self.btn_sync_google.setText("⏳ Xóa...")
-        self.delete_worker = DeleteWorker(self.google_service, eid); self.delete_worker.finished.connect(self.on_del_done); self.delete_worker.start()
-
-    def on_del_done(self, ok):
-        self.btn_sync_google.setEnabled(True); self.btn_sync_google.setText("🔄 Đồng bộ Google Calendar")
-        if ok: QMessageBox.information(self, "OK", "Đã xóa"); self.sync_google()
-        else: QMessageBox.warning(self, "Lỗi", "Không thể xóa")
-
-    # ---------- GOOGLE ----------
-    def do_google_auth(self):
-        ok, msg = self.google_service.authenticate(); QMessageBox.information(self, "Google", msg)
-
+    # --- GOOGLE SYNC LOGIC (Giữ nguyên) ---
+    def do_auth(self):
+        ok, msg = self.google_svc.authenticate(); QMessageBox.information(self, "Google", msg)
+        
     def sync_google(self):
-        self.btn_sync_google.setEnabled(False); self.btn_sync_google.setText("⏳ Tải...")
-        self.sync_worker = SyncWorker(self.google_service, self.selected_date_str); self.sync_worker.data_received.connect(self.on_sync_done); self.sync_worker.start()
-
-    def on_sync_done(self, events):
-        self.google_events_cache[self.selected_date_str] = events; self.btn_sync_google.setEnabled(True); self.btn_sync_google.setText("🔄 Đồng bộ Google Calendar"); self.load_date_details(self.selected_date_str); self.render_calendar()
-
-    def open_google_add(self):
-        # [FIX] Đã sửa lỗi: QuickGoogleDialog giờ có giá trị mặc định, nên gọi 2 tham số là OK
-        dlg = QuickGoogleDialog(self, self.selected_date_str)
+        self.btn_sync.setText("⏳..."); self.worker = SyncWorker(self.google_svc, self.sel_date)
+        self.worker.data_received.connect(self.on_sync); self.worker.start()
+        
+    def on_sync(self, res):
+        self.google_cache[self.sel_date] = res; self.btn_sync.setText("Đồng bộ Google"); self.reload_calendar()
+        
+    def push_to_google(self, title_def, desc_def):
+        dlg = QuickGoogleDialog(self, self.sel_date, title_def, desc_def)
         if dlg.exec():
-            title, start, end, desc, popup, email = dlg.get_data()
-            if not title: return
-            self.btn_sync_google.setEnabled(False); self.btn_sync_google.setText("⏳ Push...")
-            self.push_worker = PushWorker(self.google_service, title, start, end, desc, popup, email)
-            self.push_worker.finished.connect(self.on_push_done)
-            self.push_worker.start()
+            tit, start, end, desc, pop, mail = dlg.get_data()
+            if not tit: return
+            d = datetime.date.fromisoformat(self.sel_date)
+            dt_s = datetime.datetime.combine(d, datetime.time(start.hour(), start.minute()))
+            dt_e = datetime.datetime.combine(d, datetime.time(end.hour(), end.minute()))
+            pop = pop if pop != -1 else None; mail = mail if mail != -1 else None
+            self.pw = PushWorker(self.google_svc, tit, dt_s, dt_e, desc, pop, mail)
+            self.pw.finished.connect(lambda ok, msg: [QMessageBox.information(self,"Info",msg), self.sync_google()])
+            self.pw.start()
 
-    def on_push_done(self, ok, msg):
-        self.btn_sync_google.setEnabled(True); self.btn_sync_google.setText("🔄 Đồng bộ Google Calendar")
-        if ok: QMessageBox.information(self, "OK", msg); self.sync_google()
-        else: QMessageBox.warning(self, "Lỗi", msg)
+    def del_google(self, eid):
+        if QMessageBox.question(self,"Confirm","Xóa sự kiện này?") == QMessageBox.StandardButton.Yes:
+            self.dw = DeleteWorker(self.google_svc, eid)
+            self.dw.finished.connect(lambda ok: [QMessageBox.information(self,"Info","Đã xóa" if ok else "Lỗi"), self.sync_google()])
+            self.dw.start()
 
-    # 👇 PUSH CÓ TÙY CHỈNH THỜI GIAN & LOẠI NHẮC
-    def push_to_google(self, summary, desc=""):
-        dlg = QuickGoogleDialog(self, self.selected_date_str, summary, desc)
-        if dlg.exec() != QDialog.DialogCode.Accepted: return
-        title, start, end, desc, popup_min, email_min = dlg.get_data()
-        self.btn_sync_google.setEnabled(False); self.btn_sync_google.setText("⏳ Push...")
-        self.push_worker = PushWorker(self.google_service, title, start, end, desc, popup_min, email_min)
-        self.push_worker.finished.connect(self.on_push_done)
-        self.push_worker.start()
-
-    # ---------- IMPORT ----------
-    def import_csv_trans(self):
-        f, _ = QFileDialog.getOpenFileName(self, "Chọn CSV giao dịch", "", "CSV (*.csv)")
-        if f:
-            Path(f).replace(TRANS_CSV); self.reload_finance(); QMessageBox.information(self, "OK", "Đã import & reload giao dịch.")
-
-    # ---------- RESIZE ----------
     def resizeEvent(self, e):
+        self.overlay.resize(self.centralWidget().size())
+        if not self.overlay.initialized: self.overlay.init_particles()
         super().resizeEvent(e)
-        if hasattr(self, 'overlay'):
-            self.overlay.setGeometry(self.centralWidget().rect())
-            if not self.overlay.initialized: self.overlay.init_particles()
 
-# -------------- RUN --------------
 if __name__ == "__main__":
-    app = QApplication(sys.argv); app.setStyle("Fusion"); app.setFont(QFont("Segoe UI", 10))
-    win = CalendarMgr(); win.show(); sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    app.setFont(QFont("Segoe UI", 10))
+    # Lưu ý: Cần file core/data_manager.py và models đã setup để chạy độc lập
+    window = CalendarMgr()
+    window.show()
+    sys.exit(app.exec())

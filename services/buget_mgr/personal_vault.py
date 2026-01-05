@@ -466,6 +466,7 @@ class BudgetApp(QMainWindow):
         # self.init_data()
         self.data_mgr = DataManager.instance()
         self.data_mgr.data_changed.connect(self.on_data_changed)
+        self.refresh_funds_list()
         self.init_ui()
         self.overlay = Overlay(self.centralWidget())
         self.overlay.show()

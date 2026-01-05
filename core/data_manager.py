@@ -35,16 +35,62 @@ class DataManager(QObject):
         from services.debt_mgr.engine import DebtEngine
         from services.transaction_mgr.engine import TransactionEngine
         from services.buget_mgr.engine import BudgetEngine
+        from services.calendar_mgr.engine import CalendarEngine
         # --- KHỞI TẠO CÁC ENGINE ---
         # DataManager nắm giữ quyền điều khiển các engine này
         print("🔄 DataManager: Đang khởi động các Engine...")
         self.trans_engine = TransactionEngine()
         self.debt_engine = DebtEngine()
         self.budget_engine = BudgetEngine()
+        self.calendar_engine = CalendarEngine()
         
-        # TODO: Sau này thêm BudgetEngine, CalendarEngine vào đây
+
         
         print("✅ DataManager: Đã load dữ liệu thành công.")
+
+
+
+
+
+# --- GETTERS (Để UI lấy dữ liệu hiển thị) ---
+    def get_cal_todos(self, date_str):
+        return self.calendar_engine.get_todos(date_str)
+
+    def get_cal_notes(self, date_str):
+        return self.calendar_engine.get_notes(date_str)
+    
+    # Hàm hỗ trợ vẽ chấm trên lịch (kiểm tra ngày đó có data không)
+    def check_has_data(self, date_str):
+
+        todos = self.calendar_engine.get_todos(date_str)
+        notes = self.calendar_engine.get_notes(date_str)
+        return {
+            'has_todo': len(todos) > 0,
+            'has_note': len(notes) > 0
+        }
+
+    # --- ACTIONS (Để UI gọi khi người dùng thao tác) ---
+    def add_cal_todo(self, date_str, name, price):
+        self.calendar_engine.add_todo(date_str, name, price)
+        self.notify_change() # Báo UI reload
+
+    def toggle_cal_todo(self, date_str, index, is_done):
+        self.calendar_engine.update_todo_status(date_str, index, is_done)
+        # Checkbox toggle thường không cần reload toàn bộ lịch, 
+        # nhưng reload để đồng bộ chấm màu/gạch ngang cũng tốt.
+        self.notify_change()
+
+    def delete_cal_todo(self, date_str, index):
+        self.calendar_engine.delete_todo(date_str, index)
+        self.notify_change()
+
+    def add_cal_note(self, date_str, content):
+        self.calendar_engine.add_note(date_str, content)
+        self.notify_change()
+
+    def delete_cal_note(self, date_str, index):
+        self.calendar_engine.delete_note(date_str, index)
+        self.notify_change()
 
     # ==========================================
     # 1. TRANSACTION PROXY (Ủy quyền)
@@ -86,49 +132,81 @@ class DataManager(QObject):
         self.debt_engine.delete_debt(did)
         self.notify_change()
 
-    # ==========================================
-    # 3. DASHBOARD AGGREGATION (TỔNG HỢP)
-    # ==========================================
     def get_dashboard_summary(self):
         """
         Tổng hợp số liệu từ tất cả các nguồn để hiển thị lên Dashboard.
+        Trả về dict với dữ liệu đã được chuẩn hóa, an toàn và sẵn sàng cho UI.
         """
-        # 1. Từ Transaction Engine
-        trans_sum = self.trans_engine.summary() # {income, expense, balance}
-        
-        # 2. Từ Debt Engine
-        debt_sum = self.debt_engine.summary()   # {i_owe, they_owe, net}
-        
-        # 3. Từ Budget/Goal (Chưa có Engine nên tạm tính giả lập hoặc để 0)
-        total_savings = sum(fund.current for fund in self.funds)
-        
-        
-        # 4. Giao dịch gần đây
-        all_trans = self.trans_engine.get_all()
-        # Sắp xếp theo ngày giảm dần (nếu chưa sắp xếp)
-        # Giả sử date format là YYYY-MM-DD
-        recent = sorted(all_trans, key=lambda x: x.date, reverse=True)[:5]
-        
-        # Convert Transaction Object -> Dict cho Dashboard dễ dùng (nếu Dashboard dùng Dict)
-        # Hoặc trả về Object luôn tùy Dashboard
-        recent_dicts = [t.to_dict() for t in recent]
+        from datetime import date
+
+        today_str = date.today().isoformat()
+
+        # --- 1. Transaction Summary ---
+        try:
+            trans_sum = self.trans_engine.summary()  # {income, expense, balance}
+            income = trans_sum.get("income", 0)
+            expense = trans_sum.get("expense", 0)
+            balance = trans_sum.get("balance", 0)
+        except Exception:
+            income = expense = balance = 0
+
+        # --- 2. Debt Summary ---
+        try:
+            debt_sum = self.debt_engine.summary()  # {i_owe, they_owe, net}
+            debt_owe = debt_sum.get("i_owe", 0)
+            debt_recv = debt_sum.get("they_owe", 0)
+            debt_net = debt_sum.get("net", 0)
+        except Exception:
+            debt_owe = debt_recv = debt_net = 0
+
+        # --- 3. Savings (Từ BudgetEngine) ---
+        try:
+            funds = self.funds or []
+            total_savings = sum(getattr(fund, 'current', 0) for fund in funds)
+        except Exception:
+            total_savings = 0
+
+        # --- 4. Giao dịch gần đây (5 giao dịch mới nhất) ---
+        try:
+            all_trans = self.trans_engine.get_all() or []
+            # Sắp xếp theo ngày giảm dần (hỗ trợ cả str "YYYY-MM-DD" và date object)
+            def parse_date(trans):
+                d = getattr(trans, 'date', '')
+                if isinstance(d, str):
+                    return d
+                elif hasattr(d, 'isoformat'):
+                    return d.isoformat()
+                else:
+                    return "1970-01-01"
+            recent = sorted(all_trans, key=parse_date, reverse=True)[:5]
+            recent_dicts = [t.to_dict() if hasattr(t, 'to_dict') else vars(t) for t in recent]
+        except Exception:
+            recent_dicts = []
+
+        # --- 5. Dữ liệu Lịch (Todo + Notes) ---
+        try:
+            calendar_todos = self.calendar_engine.get_todos(today_str) or []
+            calendar_notes = self.calendar_engine.get_notes(today_str) or []
+        except Exception:
+            calendar_todos = []
+            calendar_notes = []
+
+        # --- 6. Tính toán tài sản ròng ---
+        net_worth = balance + total_savings + debt_net
 
         return {
-                    "income": trans_sum["income"],
-                    "expense": trans_sum["expense"],
-                    "balance": trans_sum["balance"],
-                    
-                    "debt_owe": debt_sum["i_owe"],
-                    "debt_recv": debt_sum["they_owe"],
-                    
-                    "savings": total_savings, # <--- Dữ liệu thật từ các hũ
-                    
-                    # Tài sản ròng = (Tiền mặt + Tiết kiệm + Khoản phải thu) - Nợ phải trả
-                    "net_worth": trans_sum["balance"] + total_savings + debt_sum["net"],
-                    
-                    "recent_transactions": recent_dicts
-                }
-
+            "income": income,
+            "expense": expense,
+            "balance": balance,
+            "debt_owe": debt_owe,
+            "debt_recv": debt_recv,
+            "savings": total_savings,
+            "net_worth": net_worth,
+            "recent_transactions": recent_dicts,
+            "calendar_todos": calendar_todos,   # ← Đã đổi tên để rõ nghĩa
+            "calendar_notes": calendar_notes    # ← Mới: ghi chú hôm nay
+        }
+    
     # ==========================================
     # 4. NOTIFICATION & UTILS
     # ==========================================
