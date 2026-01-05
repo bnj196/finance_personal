@@ -1,0 +1,77 @@
+[
+  {
+    "id": 1,
+    "name": "Quỹ Dự Phòng Khẩn Cấp",
+    "type": "pool",
+    "target": 0,
+    "current": 20500000,
+    "icon": "🛡️",
+    "history": [
+      {
+        "date": "2026-01-05 07:42",
+        "amount": 500000,
+        "note": "Nạp quỹ",
+        "type": "in"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Mua Ô tô",
+    "type": "goal",
+    "target": 500000000,
+    "current": 151220000,
+    "icon": "🚗",
+    "history": [
+      {
+        "date": "2026-01-05 07:34",
+        "amount": 500000,
+        "note": "Nạp quỹ",
+        "type": "in"
+      },
+      {
+        "date": "2026-01-05 07:46",
+        "amount": 500000,
+        "note": "Nạp quỹ",
+        "type": "in"
+      },
+      {
+        "date": "2026-01-05 07:47",
+        "amount": 780000,
+        "note": "898",
+        "type": "out"
+      },
+      {
+        "date": "2026-01-05 07:55",
+        "amount": 500000,
+        "note": "Nạp quỹ",
+        "type": "in"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Báo hiếu Bố Mẹ",
+    "type": "monthly",
+    "target": 5000000,
+    "current": 500000,
+    "icon": "👴",
+    "history": [
+      {
+        "date": "2026-01-05 08:04",
+        "amount": 500000,
+        "note": "Nạp quỹ",
+        "type": "in"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Bảo hiểm Nhân thọ",
+    "type": "monthly",
+    "target": 2000000,
+    "current": 2000000,
+    "icon": "🏥",
+    "history": []
+  }
+]

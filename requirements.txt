@@ -1,0 +1,7 @@
+pyqt6
+pyqt6-charts
+lunardate
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+platformdirs

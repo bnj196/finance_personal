@@ -1,0 +1,26 @@
+{
+  "2026-01-10": [
+    {
+      "name": "ádsd",
+      "price": 0,
+      "done": false
+    },
+    {
+      "name": "adsfdsfdsf",
+      "price": 10000,
+      "done": false
+    }
+  ],
+  "2026-01-05": [
+    {
+      "name": "cxgxf",
+      "price": 654,
+      "done": false
+    },
+    {
+      "name": "àgdfg",
+      "price": 0,
+      "done": false
+    }
+  ]
+}

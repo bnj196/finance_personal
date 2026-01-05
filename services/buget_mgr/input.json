@@ -1,0 +1,106 @@
+{
+  "goals": [
+    {
+      "id": "goal-001",
+      "name": "🏖️ Du Lịch Đà Nẵng 2026",
+      "target": 15000,
+      "members": [
+        {
+          "name": "Tôi",
+          "income": 0,
+          "expense": 0,
+          "contribution": 5000,
+          "role": "owner",
+          "x": 350,
+          "y": 300
+        },
+        {
+          "name": "Vợ",
+          "income": 0,
+          "expense": 0,
+          "contribution": 4500,
+          "role": "member",
+          "x": 150,
+          "y": 150
+        },
+        {
+          "name": "Cu Tí",
+          "income": 200,
+          "expense": 0,
+          "contribution": 200,
+          "role": "member",
+          "x": 550,
+          "y": 150
+        },
+        {
+          "name": "Ông Bà Nội",
+          "income": 0,
+          "expense": 0,
+          "contribution": 2000,
+          "role": "member",
+          "x": 350,
+          "y": 50
+        }
+      ]
+    },
+    {
+      "id": "goal-002",
+      "name": "🍺 Quỹ Ăn Nhậu Cuối Tuần",
+      "target": 5000,
+      "members": [
+        {
+          "name": "Tôi",
+          "income": 0,
+          "expense": 500,
+          "contribution": 1000,
+          "role": "owner",
+          "x": 200,
+          "y": 250
+        },
+        {
+          "name": "Thằng Nam",
+          "income": 0,
+          "expense": 1200,
+          "contribution": 500,
+          "role": "member",
+          "x": 500,
+          "y": 250
+        },
+        {
+          "name": "Hải (Bạn Nam)",
+          "income": 0,
+          "expense": 0,
+          "contribution": 500,
+          "role": "member",
+          "x": 350,
+          "y": 400
+        }
+      ]
+    },
+    {
+      "id": "goal-003",
+      "name": "🎮 Mua Máy PS5 Pro",
+      "target": 20000,
+      "members": [
+        {
+          "name": "Tôi",
+          "income": 0,
+          "expense": 0,
+          "contribution": 12000,
+          "role": "owner",
+          "x": 300,
+          "y": 300
+        },
+        {
+          "name": "Tiền lì xì",
+          "income": 0,
+          "expense": 0,
+          "contribution": 3000,
+          "role": "member",
+          "x": 500,
+          "y": 300
+        }
+      ]
+    }
+  ]
+}

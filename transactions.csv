@@ -1,0 +1,82 @@
+﻿id,date,category,amount,type,role,description,expiry_date,is_recurring,cycle
+T1,2026-01-05,Lương,20000000.0,income,Bố,Lương tháng 1,,False,Tháng
+C1,2026-01-06,Ăn uống,1200000.0,expense,Mẹ,Đi chợ Tết,,False,Tháng
+C2,2026-01-07,Đi lại,350000.0,expense,Bố,Xăng xe,2026-02-01,False,Tháng
+T2,2026-01-10,Thưởng,5000000.0,income,Mẹ,Thưởng Tết,,False,Tháng
+C3,2026-01-15,Giải trí,800000.0,expense,Con,Xem phim,,False,Tháng
+C4,2026-01-20,Y tế,1500000.0,expense,Ông,Khám bệnh,2026-02-10,False,Tháng
+T3,2026-02-01,Lương,20000000.0,income,Bố,Lương tháng 2,,False,Tháng
+C5,2026-02-03,Nhà cửa,2500000.0,expense,Bố,Sửa máy lạnh,,False,Tháng
+C6,2026-02-10,Ăn uống,2200000.0,expense,Mẹ,Liên hoan,,False,Tháng
+T4,2026-02-15,Kinh doanh,7000000.0,income,Con,Bán đồ cũ,,False,Tháng
+C7,2026-02-18,Giáo dục,3000000.0,expense,Con,Học thêm,2026-12-31,False,Tháng
+T5,2026-03-01,Lương,20000000.0,income,Bố,Lương tháng 3,,False,Tháng
+C8,2026-03-05,Mua sắm,4000000.0,expense,Mẹ,Mua váy mới,,False,Tháng
+C9,2026-03-12,Ăn uống,1800000.0,expense,Con,Coffee & trà sữa,,False,Tháng
+T6,2026-03-20,Đầu tư,10000000.0,income,Bố,Cổ tức,,False,Tháng
+C10,2026-03-25,Y tế,2000000.0,expense,Ông,Mua thuốc,2025-04-30,False,Tháng
+619719,2026-01-04,Trả nợ,1000000.0,expense,Tôi,Trả nợ Bạn A – Vay tiêu dùng Tết,,False,Tháng
+449881,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+287234,2026-01-04,Trả nợ,1000000.0,expense,Tôi,Trả nợ Bạn A – Vay tiêu dùng Tết,,False,Tháng
+733635,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+856949,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+458603,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+712503,2026-01-04,Trả nợ,1000000.0,expense,Tôi,Trả nợ Bạn A – Vay tiêu dùng Tết,,False,Tháng
+29b146f2-fe4a-4125-a5cf-4e732b51a9f5,2026-01-04,Thu nợ,1000000.0,income,Anh F,Thu nợ từ Anh F (Cho vay học phí),,False,Tháng
+efabf0af-fbd8-4c1c-ba76-0599a0525520,2026-01-04,Thu nợ,1000000.0,income,Anh F,Thu nợ từ Anh F (Cho vay học phí),,False,Tháng
+c91a50d4-2773-47e4-bf38-7c59b2819928,2026-01-05,Trả nợ,1000000.0,expense,Cá nhân,Trả nợ cho Cô G (Sửa nhà),,False,Tháng
+ab3ecf88-8d24-4717-8468-a43069db1efd,2026-01-05,Thu nợ,1000000.0,income,Anh B,Thu nợ từ Anh B (Cho vay kinh doanh),,False,Tháng
+f71377aa-b1eb-4c2b-ad63-c57958cecd58,2026-01-05,Thu nợ,1000000.0,income,Anh K,Thu nợ từ Anh K (Cho vay đầu tư),,False,Tháng
+6a57faaf-bd0d-4bab-addf-53a4b209c0e2,2026-01-05,Tiết kiệm,500000.0,expense,main,[Nạp quỹ] Mua Ô tô: Nạp quỹ,,False,Lần
+1767573367195,2026-01-05,Lương,13230.0,income,Anh B,,,False,Tháng
+beb6dfee-1feb-420c-b586-85281c399d27,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Quỹ Dự Phòng Khẩn Cấp: Nạp quỹ,,False,Lần
+1767573811184,2026-01-05,Thưởng,10000.0,income,Anh B,,,False,Tháng
+54f0248a-3579-498d-a175-802901b336a1,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Mua Ô tô: Nạp quỹ,,False,Lần
+102057fb-cc71-45a0-b631-45d6fd90a4d1,2026-01-05,Chi tiêu từ quỹ,780000.0,expense,Tôi,[Rút quỹ] Mua Ô tô: 898,,False,Lần
+fbd64838-4d83-47bc-a1e7-634d70185096,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Mua Ô tô: Nạp quỹ,,False,Lần
+09b3cc3b-3df4-49e6-857d-dc7fd9c302ea,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Báo hiếu Bố Mẹ: Nạp quỹ,,False,Lần
+b83ff169-731a-4145-bd11-c0c8d48bebbc,2026-01-05,Tiết kiệm & Đầu tư,500000.0,expense,CaNhan,Nạp quỹ: hũ đọc đắc - Nạp quỹ,,False,Tháng
+d89062b3-980e-4124-bb6f-ed7d6f00e6b5,2026-01-05,Tiết kiệm & Đầu tư,500000.0,expense,CaNhan,[Nạp quỹ] zdfgdsfgdsf: Nạp quỹ,,False,
+35dc1949-edec-4875-bf53-e188d0d78d2e,2026-01-05,Tiết kiệm & Đầu tư,500000.0,expense,CaNhan,[Nạp quỹ] sdfgdfs: Nạp quỹ,,False,
+1767583410126,2026-01-05,Lương,90000.0,income,Anh B,,,False,Tháng
+T1,2026-01-05,Lương,20000000.0,income,Bố,Lương tháng 1,,False,Tháng
+C1,2026-01-06,Ăn uống,1200000.0,expense,Mẹ,Đi chợ Tết,,False,Tháng
+C2,2026-01-07,Đi lại,350000.0,expense,Bố,Xăng xe,2026-02-01,False,Tháng
+T2,2026-01-10,Thưởng,5000000.0,income,Mẹ,Thưởng Tết,,False,Tháng
+C3,2026-01-15,Giải trí,800000.0,expense,Con,Xem phim,,False,Tháng
+C4,2026-01-20,Y tế,1500000.0,expense,Ông,Khám bệnh,2026-02-10,False,Tháng
+T3,2026-02-01,Lương,20000000.0,income,Bố,Lương tháng 2,,False,Tháng
+C5,2026-02-03,Nhà cửa,2500000.0,expense,Bố,Sửa máy lạnh,,False,Tháng
+C6,2026-02-10,Ăn uống,2200000.0,expense,Mẹ,Liên hoan,,False,Tháng
+T4,2026-02-15,Kinh doanh,7000000.0,income,Con,Bán đồ cũ,,False,Tháng
+C7,2026-02-18,Giáo dục,3000000.0,expense,Con,Học thêm,2026-12-31,False,Tháng
+T5,2026-03-01,Lương,20000000.0,income,Bố,Lương tháng 3,,False,Tháng
+C8,2026-03-05,Mua sắm,4000000.0,expense,Mẹ,Mua váy mới,,False,Tháng
+C9,2026-03-12,Ăn uống,1800000.0,expense,Con,Coffee & trà sữa,,False,Tháng
+T6,2026-03-20,Đầu tư,10000000.0,income,Bố,Cổ tức,,False,Tháng
+C10,2026-03-25,Y tế,2000000.0,expense,Ông,Mua thuốc,2025-04-30,False,Tháng
+619719,2026-01-04,Trả nợ,1000000.0,expense,Tôi,Trả nợ Bạn A – Vay tiêu dùng Tết,,False,Tháng
+449881,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+287234,2026-01-04,Trả nợ,1000000.0,expense,Tôi,Trả nợ Bạn A – Vay tiêu dùng Tết,,False,Tháng
+733635,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+856949,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+458603,2026-01-04,Trả nợ,1000000.0,expense,Anh B,Trả nợ Anh B – Cho vay kinh doanh,,False,Tháng
+712503,2026-01-04,Trả nợ,1000000.0,expense,Tôi,Trả nợ Bạn A – Vay tiêu dùng Tết,,False,Tháng
+29b146f2-fe4a-4125-a5cf-4e732b51a9f5,2026-01-04,Thu nợ,1000000.0,income,Anh F,Thu nợ từ Anh F (Cho vay học phí),,False,Tháng
+efabf0af-fbd8-4c1c-ba76-0599a0525520,2026-01-04,Thu nợ,1000000.0,income,Anh F,Thu nợ từ Anh F (Cho vay học phí),,False,Tháng
+c91a50d4-2773-47e4-bf38-7c59b2819928,2026-01-05,Trả nợ,1000000.0,expense,Cá nhân,Trả nợ cho Cô G (Sửa nhà),,False,Tháng
+ab3ecf88-8d24-4717-8468-a43069db1efd,2026-01-05,Thu nợ,1000000.0,income,Anh B,Thu nợ từ Anh B (Cho vay kinh doanh),,False,Tháng
+f71377aa-b1eb-4c2b-ad63-c57958cecd58,2026-01-05,Thu nợ,1000000.0,income,Anh K,Thu nợ từ Anh K (Cho vay đầu tư),,False,Tháng
+6a57faaf-bd0d-4bab-addf-53a4b209c0e2,2026-01-05,Tiết kiệm,500000.0,expense,main,[Nạp quỹ] Mua Ô tô: Nạp quỹ,,False,Lần
+1767573367195,2026-01-05,Lương,13230.0,income,Anh B,,,False,Tháng
+beb6dfee-1feb-420c-b586-85281c399d27,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Quỹ Dự Phòng Khẩn Cấp: Nạp quỹ,,False,Lần
+1767573811184,2026-01-05,Thưởng,10000.0,income,Anh B,,,False,Tháng
+54f0248a-3579-498d-a175-802901b336a1,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Mua Ô tô: Nạp quỹ,,False,Lần
+102057fb-cc71-45a0-b631-45d6fd90a4d1,2026-01-05,Chi tiêu từ quỹ,780000.0,expense,Tôi,[Rút quỹ] Mua Ô tô: 898,,False,Lần
+fbd64838-4d83-47bc-a1e7-634d70185096,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Mua Ô tô: Nạp quỹ,,False,Lần
+09b3cc3b-3df4-49e6-857d-dc7fd9c302ea,2026-01-05,Tiết kiệm,500000.0,expense,Tôi,[Nạp quỹ] Báo hiếu Bố Mẹ: Nạp quỹ,,False,Lần
+b83ff169-731a-4145-bd11-c0c8d48bebbc,2026-01-05,Tiết kiệm & Đầu tư,500000.0,expense,CaNhan,Nạp quỹ: hũ đọc đắc - Nạp quỹ,,False,Tháng
+d89062b3-980e-4124-bb6f-ed7d6f00e6b5,2026-01-05,Tiết kiệm & Đầu tư,500000.0,expense,CaNhan,[Nạp quỹ] zdfgdsfgdsf: Nạp quỹ,,False,
+35dc1949-edec-4875-bf53-e188d0d78d2e,2026-01-05,Tiết kiệm & Đầu tư,500000.0,expense,CaNhan,[Nạp quỹ] sdfgdfs: Nạp quỹ,,False,
+1767583410126,2026-01-05,Lương,90000.0,income,Anh B,,,False,Tháng
+cc132d7f-421e-4093-a8b5-ab57269a0213,2026-01-05,Thu nợ,1000000.0,income,Anh B,Thu nợ từ Anh B (Cho vay kinh doanh),,False,Tháng

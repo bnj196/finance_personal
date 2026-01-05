@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "name": "hh",
+    "type": "goal",
+    "target": 10000000,
+    "current": 0,
+    "icon": "💰",
+    "history": []
+  },
+  {
+    "id": 2,
+    "name": "bb",
+    "type": "goal",
+    "target": 10000000,
+    "current": 0,
+    "icon": "💰",
+    "history": []
+  },
+  {
+    "id": 3,
+    "name": "bb",
+    "type": "goal",
+    "target": 10000000,
+    "current": 0,
+    "icon": "💰",
+    "history": []
+  }
+]

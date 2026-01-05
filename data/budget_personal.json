@@ -1,0 +1,18 @@
+[
+    {
+        "id": "77c4d22d-2cb4-42e4-844e-c91a82ab22fe",
+        "name": "sdfgdfs",
+        "type": "goal",
+        "target": 1000000.0,
+        "current": 500000.0,
+        "icon": "🏖️",
+        "history": [
+            {
+                "date": "2026-01-05 08:33",
+                "amount": 500000,
+                "note": "Nạp quỹ",
+                "type": "in"
+            }
+        ]
+    }
+]
