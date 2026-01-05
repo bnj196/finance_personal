@@ -14,6 +14,23 @@ class Transaction:
         self.is_recurring = is_recurring
         self.cycle = cycle
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date,
+            "category": self.category,
+            "amount": self.amount,
+            "type": self.type,
+            "role": self.role,
+            "description": self.description,
+            "expiry_date": self.expiry_date,
+            "is_recurring": self.is_recurring,
+            "cycle": self.cycle
+        }
+
+
+
+
 class FamilyMember:
     def __init__(self, name, color):
         self.name = name

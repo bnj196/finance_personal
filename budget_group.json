@@ -1,0 +1,21 @@
+[
+  {
+    "id": 1,
+    "name": "hh",
+    "target": 10000000,
+    "members": [
+      {
+        "name": "New Member",
+        "contribution": 90,
+        "x": -774.0,
+        "y": -431.0
+      },
+      {
+        "name": "hh",
+        "contribution": 900000000,
+        "x": -649.0,
+        "y": -428.0
+      }
+    ]
+  }
+]

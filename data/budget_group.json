@@ -1,0 +1,152 @@
+[
+    {
+        "name": "Quỹ Du Lịch",
+        "target": 20000,
+        "id": "19992233-925c-4622-bb13-19c0d7229dc0",
+        "members": [
+            {
+                "name": "tui",
+                "income": 9000,
+                "expense": 0,
+                "contribution": 9000,
+                "role": "owner",
+                "x": -787.0,
+                "y": -524.0
+            }
+        ],
+        "deadline": "",
+        "status": "active"
+    },
+    {
+        "name": "Quỹ Ăn Uống",
+        "target": 5000,
+        "id": "a823d6fb-9f62-4d97-bc06-78c110ceec31",
+        "members": [],
+        "deadline": "",
+        "status": "active"
+    },
+    {
+        "name": "guk",
+        "target": 10000,
+        "id": "90ad9a39-ef84-495f-898e-5e488adbf86c",
+        "members": [],
+        "deadline": "",
+        "status": "active"
+    },
+    {
+        "name": "bin",
+        "target": 300000,
+        "id": "e4f4c783-39ac-4aac-9c2e-9f7aa2a7101d",
+        "members": [],
+        "deadline": "",
+        "status": "active"
+    },
+    {
+        "name": "🏖️ Du Lịch Đà Nẵng 2026",
+        "target": 15000,
+        "id": "995edee2-1eaf-4652-955d-8257ee724d3b",
+        "members": [
+            {
+                "name": "Tôi",
+                "income": 0,
+                "expense": 0,
+                "contribution": 5000,
+                "role": "owner",
+                "x": 350.0,
+                "y": 300.0
+            },
+            {
+                "name": "Vợ",
+                "income": 0,
+                "expense": 0,
+                "contribution": 4500,
+                "role": "member",
+                "x": 150.0,
+                "y": 150.0
+            },
+            {
+                "name": "Cu Tí",
+                "income": 200,
+                "expense": 0,
+                "contribution": 200,
+                "role": "member",
+                "x": 550.0,
+                "y": 150.0
+            },
+            {
+                "name": "Ông Bà Nội",
+                "income": 0,
+                "expense": 0,
+                "contribution": 2000,
+                "role": "member",
+                "x": 350.0,
+                "y": 50.0
+            }
+        ],
+        "deadline": "",
+        "status": "active"
+    },
+    {
+        "name": "🍺 Quỹ Ăn Nhậu Cuối Tuần",
+        "target": 5000,
+        "id": "088994e4-4e14-46ea-bfd7-f4d6b9b40f3c",
+        "members": [
+            {
+                "name": "Tôi",
+                "income": 0,
+                "expense": 500,
+                "contribution": 1000,
+                "role": "owner",
+                "x": 200,
+                "y": 250
+            },
+            {
+                "name": "Thằng Nam",
+                "income": 0,
+                "expense": 1200,
+                "contribution": 500,
+                "role": "member",
+                "x": 500,
+                "y": 250
+            },
+            {
+                "name": "Hải (Bạn Nam)",
+                "income": 0,
+                "expense": 0,
+                "contribution": 500,
+                "role": "member",
+                "x": 350,
+                "y": 400
+            }
+        ],
+        "deadline": "",
+        "status": "active"
+    },
+    {
+        "name": "🎮 Mua Máy PS5 Pro",
+        "target": 20000,
+        "id": "01cc84e1-e9f1-4a51-ba10-eb9d1d1d2aa6",
+        "members": [
+            {
+                "name": "Tôi",
+                "income": 0,
+                "expense": 0,
+                "contribution": 12000,
+                "role": "owner",
+                "x": 300,
+                "y": 300
+            },
+            {
+                "name": "Tiền lì xì",
+                "income": 0,
+                "expense": 0,
+                "contribution": 3000,
+                "role": "member",
+                "x": 500,
+                "y": 300
+            }
+        ],
+        "deadline": "",
+        "status": "active"
+    }
+]

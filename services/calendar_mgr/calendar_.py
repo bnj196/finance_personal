@@ -16,10 +16,6 @@ from PyQt6.QtGui import *
 
 
 
-
-
-
-
 # -------------- GOOGLE --------------
 class GoogleService:
     def __init__(self):

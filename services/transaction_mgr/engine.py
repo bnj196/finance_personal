@@ -149,3 +149,9 @@ class TransactionEngine:
         except Exception as e:
             print(f"Backup error: {e}")
             return None
+        
+    def summary(self):
+            """Tính tổng thu chi cho Dashboard"""
+            inc = sum(t.amount for t in self._transactions if t.type == "income")
+            exp = sum(t.amount for t in self._transactions if t.type == "expense")
+            return {"income": inc, "expense": exp, "balance": inc - exp}
