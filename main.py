@@ -8,7 +8,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setFont(QFont("Segoe UI", 10))
 
-    # SoundManager.instance()
     my_filter = SoundFilter()
     app.installEventFilter(my_filter)
 

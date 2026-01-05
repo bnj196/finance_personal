@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import *
 from PyQt6.QtGui import *
 
 from .agent_api import BotChatAgentAPI          # module bạn đã setup xong
-
+from core.data_manager import DataManager
 
 class LLMWorker(QThread):
     """Chạy ở thread riêng, phát từng token về GUI"""
@@ -242,6 +242,7 @@ class BotChatAgent(QMainWindow):
         qtl.setWindowTitle("AI Assistant")
         qtl.resize(450, 700)
         qtl.current_season = start_season
+        qtl.data_manager = DataManager.instance()
 
         # ---- GUI skeleton (giữ nguyên) ----
         qtl.central_widget = QWidget()
@@ -303,6 +304,62 @@ class BotChatAgent(QMainWindow):
         qtl.apply_theme(start_season)
         QTimer.singleShot(500, lambda: qtl.add_message(
             "Xin chào! Tôi là trợ lý ảo AI. Bạn cần giúp gì hôm nay?", False))
+
+
+    def _build_rag_context(self) -> str:
+            """Tạo ngữ cảnh RAG từ toàn bộ dữ liệu người dùng"""
+            try:
+                summary = self.data_manager.get_dashboard_summary()
+                trans_list = summary.get("recent_transactions", [])[:3]
+                debts = self.data_manager.debts
+                funds = self.data_manager.funds
+                goals = self.data_manager.goals
+
+                # Tạo context dạng văn bản có cấu trúc
+                ctx = "=== CONTEXT TÀI CHÍNH NGƯỜI DÙNG (CẬP NHẬT THỰC TẾ) ===\n"
+
+                # Tổng quan
+                ctx += f"- Số dư hiện tại: {summary['balance']:,.0f}đ\n"
+                ctx += f"- Thu nhập tháng này: {summary['income']:,.0f}đ\n"
+                ctx += f"- Chi tiêu tháng này: {summary['expense']:,.0f}đ\n"
+                ctx += f"- Tài sản ròng: {summary['net_worth']:,.0f}đ\n"
+                ctx += f"- Tiền tiết kiệm (hũ): {summary['savings']:,.0f}đ\n"
+
+                # Nợ
+                if debts:
+                    ctx += "- NỢ:\n"
+                    for d in debts:
+                        ctx += f"  • {getattr(d, 'name', 'Ẩn danh')}: {getattr(d, 'amount', 0):,.0f}đ ({'Tôi nợ' if getattr(d, 'is_ower', True) else 'Họ nợ tôi'})\n"
+
+                # Hũ tiết kiệm
+                if funds:
+                    ctx += "- HŨ TIẾT KIỆM:\n"
+                    for f in funds:
+                        ctx += f"  • {getattr(f, 'name', 'Không tên')}: {getattr(f, 'current', 0):,.0f}đ / {getattr(f, 'target', 0):,.0f}đ\n"
+
+                # Mục tiêu nhóm
+                if goals:
+                    ctx += "- MỤC TIÊU NHÓM:\n"
+                    for g in goals:
+                        ctx += f"  • {getattr(g, 'title', 'Không tên')}: {getattr(g, 'current', 0):,.0f}đ / {getattr(g, 'target', 0):,.0f}đ\n"
+
+                # Giao dịch gần đây
+                if trans_list:
+                    ctx += "- GIAO DỊCH GẦN ĐÂY:\n"
+                    for t in trans_list:
+                        d = t.get('date', '???')
+                        c = t.get('category', 'Khác')
+                        a = t.get('amount', 0)
+                        ty = t.get('type', 'unknown')
+                        sign = "-" if ty == "expense" else "+"
+                        ctx += f"  • [{d}] {c}: {sign}{a:,.0f}đ\n"
+
+                ctx += "=== HẾT CONTEXT ===\n"
+                return ctx
+            except Exception as e:
+                print(f"⚠️ Lỗi khi tạo RAG context: {e}")
+                return "=== CONTEXT TẠM THỜI KHÔNG CÓ DỮ LIỆU ===\n"
+
 
     # -------- theme handling --------
     def rotate_theme(qtl):
@@ -394,9 +451,14 @@ class BotChatAgent(QMainWindow):
     def update_theme(qtl, season_name): qtl.apply_theme(season_name)
     # -------- LLM streaming (thay thế fake_llm_response) --------
     def stream_llm_response(qtl, user_text):
+        rag_context = {
+            "context": qtl._build_rag_context(),
+            "user_input": user_text
+        }
+
         # 1) tạo worker & thread
         qtl._llm_thread = QThread()
-        qtl._worker = LLMWorker(user_text, qtl.llm_agent)
+        qtl._worker = LLMWorker(str(rag_context), qtl.llm_agent)
         qtl._worker.moveToThread(qtl._llm_thread)
 
         # 2) nối signal

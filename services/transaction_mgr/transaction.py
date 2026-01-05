@@ -169,9 +169,111 @@ class TransactionDialog(QDialog):
             "cycle": self.cycle_combo.currentText() if self.recurring_check.isChecked() else "Tháng"
         }
 
-# ==========================================
-# 2. MAIN WINDOW (MANAGER UI)
-# ==========================================
+
+class ZoomableGraphicsView(QGraphicsView):
+    def __init__(self, scene: QGraphicsScene):
+        super().__init__(scene)
+        self.setMouseTracking(True)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        self.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+
+        # Neo zoom và kéo theo con trỏ chuột
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+
+        # Chế độ kéo nền (drag canvas)
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+
+        # Bật theo dõi chuột để hover hoạt động ngay cả khi không nhấn
+        self.setMouseTracking(True)
+
+        # Tùy chỉnh thanh cuộn
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        # Tùy chỉnh kiểu con trỏ
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        # Giới hạn zoom (tùy chọn)
+        self._zoom_step = 1.2
+        self._min_scale = 0.2
+        self._max_scale = 5.0
+
+    def wheelEvent(self, event: QWheelEvent):
+        """
+        Zoom vào/vào vị trí con trỏ chuột.
+        """
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Chỉ zoom khi giữ Ctrl (tùy chọn, có thể bỏ nếu muốn zoom không cần Ctrl)
+            pass
+
+        # Lấy hệ số zoom
+        zoom_factor = self._zoom_step if event.angleDelta().y() > 0 else 1 / self._zoom_step
+
+        # Lấy tỷ lệ hiện tại
+        current_scale = self.transform().m11()  # m11 = scale X
+
+        # Kiểm tra giới hạn zoom
+        if current_scale * zoom_factor < self._min_scale:
+            zoom_factor = self._min_scale / current_scale
+        elif current_scale * zoom_factor > self._max_scale:
+            zoom_factor = self._max_scale / current_scale
+
+        # Áp dụng zoom
+        self.scale(zoom_factor, zoom_factor)
+
+        # Chấp nhận sự kiện
+        event.accept()
+
+    def mousePressEvent(self, event: QMouseEvent):
+        """
+        Xử lý nhấn chuột: cho phép kéo canvas bằng nút phải hoặc giữa.
+        """
+        if event.button() == Qt.MouseButton.RightButton:
+            # Bắt đầu kéo canvas (ScrollHandDrag chỉ hoạt động với nút giữa mặc định)
+            # Nên ta giả lập bằng cách chuyển chế độ tạm thời
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            fake_event = QMouseEvent(
+                QEvent.Type.MouseButtonPress,
+                event.position(),
+                Qt.MouseButton.LeftButton,
+                Qt.MouseButton.LeftButton,
+                Qt.KeyboardModifier.NoModifier
+            )
+            super().mousePressEvent(fake_event)
+            return
+
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        """
+        Khôi phục chế độ sau khi thả chuột phải.
+        """
+        if event.button() == Qt.MouseButton.RightButton:
+            fake_event = QMouseEvent(
+                QEvent.Type.MouseButtonRelease,
+                event.position(),
+                Qt.MouseButton.LeftButton,
+                Qt.MouseButton.LeftButton,
+                Qt.KeyboardModifier.NoModifier
+            )
+            super().mouseReleaseEvent(fake_event)
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)  # hoặc ScrollHandDrag nếu bạn muốn giữ
+            return
+
+        super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """
+        (Tùy chọn) Hỗ trợ phím tắt: Ctrl + 0 để reset zoom.
+        """
+        if event.key() == Qt.Key.Key_0 and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.resetTransform()
+            self.centerOn(self.scene().sceneRect().center())
+        else:
+            super().keyPressEvent(event)
+
 class TransactionMgr(QMainWindow):
     def __init__(self, parent=None, theme_key="spring"):
         super().__init__(parent)
@@ -284,7 +386,7 @@ class TransactionMgr(QMainWindow):
         right_layout = QVBoxLayout(right_panel)
         
         self.scene = QGraphicsScene()
-        self.view = QGraphicsView(self.scene)
+        self.view = ZoomableGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.view.setStyleSheet("background: transparent; border: none;")
         right_layout.addWidget(self.view)
@@ -443,34 +545,35 @@ class TransactionMgr(QMainWindow):
         # Mở dialog thống kê (Code dialog này giả sử bạn đã có)
         dlg = StatisticsDialog(self, self.data_manager.transactions)
         dlg.exec()
-
+    
     def update_graph(self, transactions):
         self.scene.clear()
         
-        # Build data
         roles = sorted(set(t.role for t in transactions))
+        if not roles:
+            return
+
+        # Tạo members
         colors = [QColor("#E74C3C"), QColor("#8E44AD"), QColor("#3498DB"), QColor("#16A085"), QColor("#F39C12")]
+        members = [
+            FamilyMember(r, colors[i % len(colors)]) for i, r in enumerate(roles)
+        ]
         
-        members = [FamilyMember(r, colors[i % len(colors)]) for i, r in enumerate(roles)]
-        
+        # ✅ TÍNH TOÁN TỔNG TIỀN CHO TỪNG MEMBER TRƯỚC
         for m in members:
             m.total_income = sum(t.amount for t in transactions if t.role == m.name and t.type == "income")
             m.total_expense = sum(t.amount for t in transactions if t.role == m.name and t.type == "expense")
 
-        if not members: return
-        cx, cy, r = 250, 250, 150
-        
+        # ✅ SAU ĐÓ MỚI TẠO NODE
+        cx, cy = 250, 250
+        radius = 150
+        n = len(members)
         for i, m in enumerate(members):
-            angle = 2 * math.pi * i / len(members) - math.pi/2
-            x = cx + r * math.cos(angle) - 25
-            y = cy + r * math.sin(angle) - 25
-            node = BudgetNode(m, int(x), int(y))
-            node.update_size()
+            angle = 2 * math.pi * i / n - math.pi / 2
+            x = cx + radius * math.cos(angle)
+            y = cy + radius * math.sin(angle)
+            node = BudgetNode(m, x, y)  # ← Giờ m đã có dữ liệu đầy đủ
             self.scene.addItem(node)
-            
-            text = QGraphicsTextItem(m.name)
-            text.setPos(x, y + node.rect().height())
-            self.scene.addItem(text)
 
     def apply_theme(self, theme_key):
         self.current_theme_key = theme_key
